@@ -1,0 +1,332 @@
+<div class="login">
+  <aside class="login__brand" aria-hidden="true">
+    <!--
+      An inline SVG rather than a photograph: it inherits the institution's
+      accent through currentColor, stays crisp at any size, and adds nothing to
+      the network cost of a page shown before authentication.
+    -->
+    <!--
+      An original flat-vector scene, authored inline rather than shipped as an
+      asset: every fill is a brand token, so the illustration re-colours itself
+      with whichever palette the institution has chosen, and it stays crisp at
+      any size without a second network request.
+
+      It sits on its own light canvas. The panel behind it is deliberately dark,
+      and a flat illustration needs a light ground for its dark shapes — hair,
+      tie, handset body — to read at all.
+    -->
+    <svg class="login__art" viewBox="0 0 660 470" role="presentation" focusable="false">
+      <defs>
+        <linearGradient id="loginCanvas" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--brand-50)" />
+          <stop offset="100%" stop-color="var(--brand-100)" />
+        </linearGradient>
+      </defs>
+
+      <rect x="0" y="0" width="660" height="470" rx="26" fill="url(#loginCanvas)" />
+
+      <!-- Floating interface cards, the quiet backdrop of an admin tool. -->
+      <g class="art-cards">
+        <rect
+          x="392"
+          y="34"
+          width="156"
+          height="46"
+          rx="11"
+          fill="none"
+          stroke="var(--brand-400)"
+          stroke-opacity=".5"
+          stroke-width="2"
+        />
+        <rect
+          x="454"
+          y="96"
+          width="150"
+          height="30"
+          rx="9"
+          fill="var(--brand-300)"
+          fill-opacity=".55"
+        />
+        <rect
+          x="44"
+          y="52"
+          width="96"
+          height="30"
+          rx="9"
+          fill="none"
+          stroke="var(--brand-400)"
+          stroke-opacity=".45"
+          stroke-width="2"
+        />
+        <rect
+          x="26"
+          y="104"
+          width="112"
+          height="56"
+          rx="13"
+          fill="var(--brand-300)"
+          fill-opacity=".4"
+        />
+        <rect
+          x="576"
+          y="164"
+          width="56"
+          height="26"
+          rx="8"
+          fill="var(--brand-500)"
+          fill-opacity=".75"
+        />
+        <rect
+          x="438"
+          y="232"
+          width="132"
+          height="30"
+          rx="9"
+          fill="none"
+          stroke="var(--brand-400)"
+          stroke-opacity=".45"
+          stroke-width="2"
+        />
+        <rect
+          x="520"
+          y="286"
+          width="104"
+          height="26"
+          rx="8"
+          fill="var(--brand-300)"
+          fill-opacity=".5"
+        />
+      </g>
+
+      <!-- Ground -->
+      <ellipse cx="330" cy="426" rx="272" ry="26" fill="var(--brand-800)" fill-opacity=".14" />
+
+      <!-- Plant -->
+      <g class="art-plant">
+        <path
+          d="M96 342 Q90 282 62 254"
+          stroke="var(--brand-500)"
+          stroke-width="3"
+          fill="none"
+          stroke-linecap="round"
+        />
+        <path
+          d="M96 342 Q104 290 132 268"
+          stroke="var(--brand-500)"
+          stroke-width="3"
+          fill="none"
+          stroke-linecap="round"
+        />
+        <g fill="var(--brand-500)">
+          <ellipse cx="58" cy="246" rx="18" ry="10" transform="rotate(-32 58 246)" />
+          <ellipse cx="76" cy="278" rx="18" ry="10" transform="rotate(-20 76 278)" />
+          <ellipse cx="136" cy="262" rx="18" ry="10" transform="rotate(30 136 262)" />
+          <ellipse cx="116" cy="296" rx="17" ry="9" transform="rotate(22 116 296)" />
+          <ellipse cx="97" cy="240" rx="13" ry="19" />
+        </g>
+        <path
+          d="M68 344 H126 L117 412 Q116 420 108 420 H86 Q78 420 77 412 Z"
+          fill="var(--brand-800)"
+        />
+        <rect x="64" y="334" width="66" height="15" rx="6" fill="var(--brand-700)" />
+      </g>
+
+      <!-- Handset showing the sign-in form -->
+      <g class="art-phone">
+        <rect x="156" y="44" width="208" height="384" rx="30" fill="var(--brand-900)" />
+        <rect x="168" y="56" width="184" height="360" rx="22" fill="#ffffff" />
+        <rect x="232" y="64" width="56" height="9" rx="4.5" fill="var(--brand-900)" />
+
+        <!-- Avatar -->
+        <circle cx="260" cy="128" r="25" fill="var(--brand-700)" />
+        <path d="M228 180 Q230 148 260 148 Q290 148 292 180 Z" fill="var(--brand-700)" />
+
+        <!-- Heading -->
+        <rect x="228" y="200" width="64" height="11" rx="5.5" fill="var(--brand-800)" />
+
+        <!-- Fields -->
+        <rect x="200" y="238" width="66" height="8" rx="4" fill="var(--brand-400)" />
+        <rect x="200" y="258" width="120" height="3" rx="1.5" fill="var(--brand-300)" />
+
+        <g fill="var(--brand-700)">
+          <circle cx="204" cy="292" r="4" />
+          <circle cx="218" cy="292" r="4" />
+          <circle cx="232" cy="292" r="4" />
+          <circle cx="246" cy="292" r="4" />
+          <circle cx="260" cy="292" r="4" />
+          <circle cx="274" cy="292" r="4" />
+        </g>
+        <rect x="200" y="308" width="120" height="3" rx="1.5" fill="var(--brand-300)" />
+
+        <!-- Action -->
+        <rect x="200" y="342" width="120" height="36" rx="18" fill="var(--brand-500)" />
+        <rect x="236" y="357" width="48" height="7" rx="3.5" fill="#ffffff" fill-opacity=".92" />
+      </g>
+
+      <!-- Operator, seated cross-legged with a laptop -->
+      <g class="art-person">
+        <ellipse cx="474" cy="416" rx="112" ry="16" fill="var(--brand-800)" fill-opacity=".16" />
+
+        <!-- Crossed legs: a splayed lap with a shin band across the front -->
+        <path
+          d="M406 352 H542 Q558 352 560 368 L564 386 Q566 398 554 398 H394 Q382 398 384 386 L388 368 Q390 352 406 352 Z"
+          fill="var(--brand-700)"
+        />
+        <rect x="388" y="384" width="172" height="28" rx="14" fill="var(--brand-600)" />
+        <ellipse cx="392" cy="410" rx="18" ry="9" fill="var(--brand-900)" />
+        <ellipse cx="556" cy="410" rx="18" ry="9" fill="var(--brand-900)" />
+
+        <!-- Arms, a step darker than the jacket so the silhouette separates -->
+        <path
+          d="M444 258 Q418 296 418 356"
+          stroke="var(--brand-600)"
+          stroke-width="20"
+          fill="none"
+          stroke-linecap="round"
+        />
+        <path
+          d="M504 258 Q530 296 530 356"
+          stroke="var(--brand-600)"
+          stroke-width="20"
+          fill="none"
+          stroke-linecap="round"
+        />
+
+        <!-- Neck sits under the collar -->
+        <rect x="464" y="224" width="20" height="22" rx="8" fill="#e2a97e" />
+
+        <!-- Jacket, shirt and tie -->
+        <path
+          d="M442 254 Q442 240 474 234 Q506 240 506 254 L514 348 Q514 358 502 358 H446 Q434 358 434 348 Z"
+          fill="var(--brand-500)"
+        />
+        <path d="M461 238 L474 278 L487 238 Q474 232 461 238 Z" fill="#ffffff" />
+        <path d="M474 244 L481 254 L476 292 L469 254 Z" fill="var(--brand-900)" />
+
+        <!-- Head -->
+        <circle cx="474" cy="206" r="29" fill="#f2c49f" />
+        <path
+          d="M445 208 Q443 174 474 174 Q506 174 504 210 Q500 198 492 192 Q476 202 452 197 Q447 200 445 208 Z"
+          fill="var(--brand-900)"
+        />
+
+        <!-- Laptop on the lap, seen from behind, hands tucked behind it -->
+        <path
+          d="M422 334 H526 Q533 334 535 341 L545 374 H403 L413 341 Q415 334 422 334 Z"
+          fill="var(--brand-200)"
+        />
+        <circle cx="474" cy="354" r="8" fill="var(--brand-400)" fill-opacity=".85" />
+        <path
+          d="M398 374 H550 Q558 374 558 381 Q558 388 550 388 H398 Q390 388 390 381 Q390 374 398 374 Z"
+          fill="var(--brand-300)"
+        />
+      </g>
+    </svg>
+
+    <div class="login__brand-content">
+      <p class="login__eyebrow">Jewellery ERP</p>
+      <h1 class="login__brand-title">Every piece, accounted for.</h1>
+      <p class="login__brand-copy">
+        Serialized inventory, live metal rates and branch operations — governed end to end.
+      </p>
+      <ul class="login__brand-list">
+        <li>Every item tracked as a unique piece, from receipt to sale</li>
+        <li>Rates, pricing and approvals under one control plane</li>
+        <li>A complete, auditable trail across every branch</li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="login__panel">
+    <div class="login__form-wrap">
+      <!--
+        The icon names the destination, not the current state: this is a button,
+        and what it will do is the useful thing to show.
+      -->
+      <button
+        type="button"
+        class="btn btn--ghost btn--icon btn--sm login__theme"
+        [attr.aria-label]="
+          theme.resolved() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'
+        "
+        [attr.title]="
+          theme.resolved() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'
+        "
+        (click)="theme.toggle()"
+      >
+        <app-icon [name]="theme.resolved() === 'dark' ? 'sun' : 'moon'" [size]="16" />
+      </button>
+
+      <header class="login__header">
+        <p class="eyebrow">Administration Portal</p>
+        <h2 class="login__title">Sign in</h2>
+        <p class="login__subtitle">Use the credentials issued by your administrator.</p>
+      </header>
+
+      <form class="login__form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        @if (failure(); as message) {
+          <div class="login__error" role="alert">
+            <app-icon name="warning" [size]="16" />
+            <span>{{ message }}</span>
+          </div>
+        }
+
+        <app-form-field
+          label="Username"
+          for="username"
+          [required]="true"
+          [control]="form.controls.username"
+          [submitted]="submitted()"
+        >
+          <input
+            id="username"
+            type="text"
+            class="input"
+            formControlName="username"
+            autocomplete="username"
+            appAutofocus
+          />
+        </app-form-field>
+
+        <app-form-field
+          label="Password"
+          for="password"
+          [required]="true"
+          [control]="form.controls.password"
+          [submitted]="submitted()"
+        >
+          <div class="login__password">
+            <input
+              id="password"
+              [type]="showPassword() ? 'text' : 'password'"
+              class="input"
+              formControlName="password"
+              autocomplete="current-password"
+            />
+            <button
+              type="button"
+              class="login__reveal"
+              [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+              (click)="showPassword.set(!showPassword())"
+            >
+              <app-icon [name]="showPassword() ? 'eyeOff' : 'eye'" [size]="16" />
+            </button>
+          </div>
+        </app-form-field>
+
+        <button type="submit" class="btn btn--primary btn--lg btn--block" [disabled]="submitting()">
+          @if (submitting()) {
+            <app-spinner [size]="15" />
+            Signing in…
+          } @else {
+            Sign in
+          }
+        </button>
+      </form>
+
+      <footer class="login__footer">
+        <p>Forgotten your password? Contact your system administrator.</p>
+      </footer>
+    </div>
+  </main>
+</div>

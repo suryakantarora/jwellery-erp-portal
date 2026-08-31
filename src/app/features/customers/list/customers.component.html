@@ -1,0 +1,262 @@
+<ng-template #nameCell let-row>
+  <span class="cell-stack">
+    <span class="cell-stack__primary">{{ row.fullName }}</span>
+    @if (row.companyName) {
+      <span class="cell-stack__secondary">{{ row.companyName }}</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #datesCell let-row>
+  <span class="cell-stack">
+    @if (row.dateOfBirth) {
+      <span class="cell-stack__secondary">Born {{ row.dateOfBirth }}</span>
+    }
+    @if (row.anniversaryDate) {
+      <span class="cell-stack__secondary">Anniversary {{ row.anniversaryDate }}</span>
+    }
+    @if (!row.dateOfBirth && !row.anniversaryDate) {
+      <span class="muted">—</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #kycCell let-row>
+  <app-status-badge [status]="row.kycStatus" />
+</ng-template>
+
+<ng-template #statusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<app-master-panel
+  title="Customers"
+  eyebrow="Customers"
+  description="Who the business sells to, their KYC standing, and the dates worth remembering."
+  [columns]="columns"
+  [page]="result()"
+  [loading]="loading()"
+  [error]="error()"
+  [sort]="sort()"
+  [trackBy]="trackById"
+  [cellTemplates]="templates()"
+  [canManage]="canManage()"
+  createLabel="New customer"
+  searchPlaceholder="Search name, phone or code…"
+  emptyTitle="No customers"
+  emptyMessage="Register the first customer to begin."
+  [editing]="creating() ? 'new' : null"
+  drawerTitle="New customer"
+  drawerSubtitle="Addresses, documents and preferences are added on the customer's profile."
+  drawerSize="lg"
+  formId="customer-form"
+  [saving]="saving()"
+  saveLabel="Create customer"
+  (create)="startCreate()"
+  (rowClick)="open($event)"
+  (search)="onSearch($event)"
+  (sortChange)="onSort($event)"
+  (pageChange)="onPage($event)"
+  (sizeChange)="onSizeChange($event)"
+  (retry)="load()"
+  (dismiss)="close()"
+>
+  <div panelFilters class="panel-filters">
+    <label class="panel-filters__field">
+      <span class="field-label">Status</span>
+      <select class="select" (change)="onFilter('status', $event)">
+        <option value="">All statuses</option>
+        @for (status of statuses; track status.value) {
+          <option [value]="status.value" [selected]="status.value === statusFilter()">
+            {{ status.label }}
+          </option>
+        }
+      </select>
+    </label>
+
+    <label class="panel-filters__field">
+      <span class="field-label">KYC</span>
+      <select class="select" (change)="onFilter('kyc', $event)">
+        <option value="">Any KYC state</option>
+        @for (status of kycStatuses; track status.value) {
+          <option [value]="status.value" [selected]="status.value === kycFilter()">
+            {{ status.label }}
+          </option>
+        }
+      </select>
+    </label>
+
+    <label class="panel-filters__field">
+      <span class="field-label">Registered branch</span>
+      <select class="select" (change)="onFilter('branch', $event)">
+        <option value="">All branches</option>
+        @for (branch of branches(); track branch.id) {
+          <option [value]="branch.id" [selected]="branch.id === branchFilter()">
+            {{ branch.name }}
+          </option>
+        }
+      </select>
+    </label>
+
+    @if (activeFilterCount() > 0) {
+      <button type="button" class="btn btn--ghost btn--sm" (click)="clearFilters()">
+        Clear filters
+      </button>
+    }
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="save()" id="customer-form">
+    @if (formError(); as message) {
+      <p class="form-error">{{ message }}</p>
+    }
+
+    <div class="form-section">
+      <div class="form-grid">
+        <app-form-field
+          label="Type"
+          [control]="form.controls.customerType"
+          [submitted]="submitted()"
+          for="cu-type"
+        >
+          <select id="cu-type" class="select" formControlName="customerType">
+            @for (type of customerTypes; track type.value) {
+              <option [value]="type.value">{{ type.label }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Code"
+          hint="Leave blank and the platform assigns one."
+          [control]="form.controls.customerCode"
+          [submitted]="submitted()"
+          for="cu-code"
+        >
+          <input
+            id="cu-code"
+            class="input mono"
+            formControlName="customerCode"
+            autocomplete="off"
+          />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Full name"
+          [required]="true"
+          [control]="form.controls.fullName"
+          [submitted]="submitted()"
+          for="cu-name"
+        >
+          <input id="cu-name" class="input" formControlName="fullName" />
+        </app-form-field>
+
+        @if (form.controls.customerType.value === 'CORPORATE') {
+          <app-form-field
+            class="form-grid__full"
+            label="Company name"
+            [control]="form.controls.companyName"
+            [submitted]="submitted()"
+            for="cu-company"
+          >
+            <input id="cu-company" class="input" formControlName="companyName" />
+          </app-form-field>
+        }
+
+        <app-form-field
+          label="Phone"
+          [required]="true"
+          [control]="form.controls.phone"
+          [submitted]="submitted()"
+          for="cu-phone"
+        >
+          <input id="cu-phone" class="input mono" formControlName="phone" />
+        </app-form-field>
+
+        <app-form-field
+          label="Alternate phone"
+          [control]="form.controls.alternatePhone"
+          [submitted]="submitted()"
+          for="cu-alt-phone"
+        >
+          <input id="cu-alt-phone" class="input mono" formControlName="alternatePhone" />
+        </app-form-field>
+
+        <app-form-field
+          label="Email"
+          [control]="form.controls.email"
+          [submitted]="submitted()"
+          for="cu-email"
+        >
+          <input id="cu-email" class="input" type="email" formControlName="email" />
+        </app-form-field>
+
+        <app-form-field
+          label="Tax number"
+          [control]="form.controls.taxNumber"
+          [submitted]="submitted()"
+          for="cu-tax"
+        >
+          <input id="cu-tax" class="input mono" formControlName="taxNumber" />
+        </app-form-field>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3 class="form-section__title">Dates and preferences</h3>
+      <div class="form-grid">
+        <app-form-field
+          label="Date of birth"
+          [control]="form.controls.dateOfBirth"
+          [submitted]="submitted()"
+          for="cu-dob"
+        >
+          <input id="cu-dob" class="input" type="date" formControlName="dateOfBirth" />
+        </app-form-field>
+
+        <app-form-field
+          label="Anniversary"
+          hint="Drives anniversary campaigns."
+          [control]="form.controls.anniversaryDate"
+          [submitted]="submitted()"
+          for="cu-anniversary"
+        >
+          <input id="cu-anniversary" class="input" type="date" formControlName="anniversaryDate" />
+        </app-form-field>
+
+        <app-form-field
+          label="Gender"
+          [control]="form.controls.gender"
+          [submitted]="submitted()"
+          for="cu-gender"
+        >
+          <input id="cu-gender" class="input" formControlName="gender" />
+        </app-form-field>
+
+        <app-form-field
+          label="Registered branch"
+          [control]="form.controls.registeredBranchId"
+          [submitted]="submitted()"
+          for="cu-branch"
+        >
+          <select id="cu-branch" class="select" formControlName="registeredBranchId">
+            <option value="">No branch</option>
+            @for (branch of branches(); track branch.id) {
+              <option [value]="branch.id">{{ branch.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Notes"
+          [control]="form.controls.notes"
+          [submitted]="submitted()"
+          for="cu-notes"
+        >
+          <textarea id="cu-notes" class="textarea" rows="2" formControlName="notes"></textarea>
+        </app-form-field>
+      </div>
+    </div>
+  </form>
+</app-master-panel>

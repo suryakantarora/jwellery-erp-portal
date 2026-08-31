@@ -1,0 +1,705 @@
+@if (loading() && !customer()) {
+  <app-loading-state label="Loading customer…" />
+} @else if (error(); as failure) {
+  <app-error-state [error]="failure" (retry)="reload()" />
+} @else if (customer(); as person) {
+  <app-page-header
+    [title]="person.fullName"
+    eyebrow="Customer 360"
+    [description]="person.customerCode + ' · ' + person.phone"
+  >
+    <a class="btn btn--ghost" routerLink="/customers">Back to customers</a>
+    @if (canManage()) {
+      <button type="button" class="btn btn--secondary" (click)="edit()">Edit</button>
+    }
+    @if (canManageCrm()) {
+      <button type="button" class="btn btn--secondary" (click)="logActivity()">Log activity</button>
+      <button type="button" class="btn btn--primary" (click)="addFollowUp()">
+        Schedule follow-up
+      </button>
+    }
+  </app-page-header>
+
+  @if (overview(); as summary) {
+    <section class="metric-row">
+      <article class="card kpi">
+        <p class="kpi__label">Purchases</p>
+        <p class="kpi__value">{{ summary.purchases.purchaseCount }}</p>
+        <p class="kpi__note">
+          @if (summary.purchases.lastPurchaseDate) {
+            Last on {{ summary.purchases.lastPurchaseDate }}
+          } @else {
+            Nothing bought yet
+          }
+        </p>
+      </article>
+
+      <article class="card kpi">
+        <p class="kpi__label">Lifetime spend</p>
+        <p class="kpi__value">{{ summary.purchases.lifetimeSpend | number: '1.0-0' }}</p>
+        <p class="kpi__note">Average {{ summary.purchases.averageOrderValue | number: '1.0-0' }}</p>
+      </article>
+
+      <article class="card kpi">
+        <p class="kpi__label">Loyalty</p>
+        <p class="kpi__value">
+          {{ summary.loyalty.enrolled ? summary.loyalty.pointsBalance : '—' }}
+        </p>
+        <p class="kpi__note">
+          @if (summary.loyalty.enrolled) {
+            {{ summary.loyalty.tierName ?? summary.loyalty.tierCode }} ·
+            {{ summary.loyalty.lifetimePoints }} lifetime
+          } @else {
+            Not enrolled
+          }
+        </p>
+      </article>
+
+      <article class="card kpi">
+        <p class="kpi__label">Open follow-ups</p>
+        <p class="kpi__value">{{ openFollowUps().length }}</p>
+        <p class="kpi__note">KYC {{ kycLabel(person.kycStatus).toLowerCase() }}</p>
+      </article>
+    </section>
+  }
+
+  <div class="profile-grid">
+    <div class="profile-grid__main">
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Timeline</h2>
+        <app-timeline
+          [entries]="timeline()"
+          emptyMessage="Nothing has happened with this customer yet. Logging a call or a visit starts the story."
+        />
+      </section>
+
+      <section class="card detail-section">
+        <header class="section-head">
+          <h2 class="detail-section__title">Follow-ups</h2>
+          @if (canManageCrm()) {
+            <button type="button" class="btn btn--ghost btn--sm" (click)="addFollowUp()">
+              Schedule
+            </button>
+          }
+        </header>
+
+        @if (followUps().length === 0) {
+          <p class="muted">Nothing scheduled.</p>
+        } @else {
+          <ul class="record-list">
+            @for (task of followUps(); track task.id) {
+              <li class="record">
+                <div>
+                  <p class="record__title">{{ task.title }}</p>
+                  <p class="record__detail">
+                    Due {{ task.dueDate }} · {{ task.assignedTo }}
+                    @if (task.priority) {
+                      · {{ task.priority }}
+                    }
+                  </p>
+                  @if (task.outcome) {
+                    <p class="record__detail">{{ task.outcome }}</p>
+                  }
+                </div>
+                <div class="record__side">
+                  <app-status-badge
+                    [status]="task.status"
+                    [tone]="task.status === 'OPEN' && task.overdue ? 'danger' : null"
+                    [label]="task.status === 'OPEN' && task.overdue ? 'Overdue' : null"
+                  />
+                  @if (task.status === 'OPEN' && canManageCrm()) {
+                    <button
+                      type="button"
+                      class="btn btn--ghost btn--sm"
+                      (click)="completeFollowUp(task)"
+                    >
+                      Complete
+                    </button>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    </div>
+
+    <div class="profile-grid__side">
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Profile</h2>
+        <dl class="detail-facts">
+          <div>
+            <dt>Type</dt>
+            <dd>{{ person.customerType }}</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd><app-status-badge [status]="person.status" /></dd>
+          </div>
+          <div>
+            <dt>Phone</dt>
+            <dd class="mono">{{ person.phone }}</dd>
+          </div>
+          <div>
+            <dt>Email</dt>
+            <dd>{{ person.email ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Born</dt>
+            <dd>{{ person.dateOfBirth ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Anniversary</dt>
+            <dd>{{ person.anniversaryDate ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Tax number</dt>
+            <dd class="mono">{{ person.taxNumber ?? '—' }}</dd>
+          </div>
+        </dl>
+        @if (person.notes) {
+          <p class="muted detail-note">{{ person.notes }}</p>
+        }
+      </section>
+
+      <section class="card detail-section">
+        <header class="section-head">
+          <h2 class="detail-section__title">KYC</h2>
+          <app-status-badge [status]="person.kycStatus" />
+        </header>
+
+        <p class="muted kyc-note">
+          @if (person.kycVerifiedAt) {
+            Verified on {{ person.kycVerifiedAt }}.
+          } @else {
+            A decision is recorded against the documents on file and is audited.
+          }
+        </p>
+
+        @if (canVerifyKyc() && person.kycStatus !== 'VERIFIED') {
+          <div class="kyc-actions">
+            <button type="button" class="btn btn--primary btn--sm" (click)="decideKyc('VERIFIED')">
+              Verify
+            </button>
+            <button
+              type="button"
+              class="btn btn--danger-ghost btn--sm"
+              (click)="decideKyc('REJECTED')"
+            >
+              Reject
+            </button>
+          </div>
+        }
+      </section>
+
+      <section class="card detail-section">
+        <header class="section-head">
+          <h2 class="detail-section__title">Addresses</h2>
+          @if (canManage()) {
+            <button type="button" class="btn btn--ghost btn--sm" (click)="addAddress()">Add</button>
+          }
+        </header>
+
+        @if (!person.addresses || person.addresses.length === 0) {
+          <p class="muted">No addresses on file.</p>
+        } @else {
+          <ul class="record-list">
+            @for (address of person.addresses; track address.id) {
+              <li class="record">
+                <div>
+                  <p class="record__title">
+                    {{ address.addressType ?? 'Address' }}
+                    @if (address.defaultAddress) {
+                      <app-status-badge tone="accent" label="Default" [dot]="false" />
+                    }
+                  </p>
+                  <p class="record__detail">
+                    {{ address.addressLine1
+                    }}{{ address.addressLine2 ? ', ' + address.addressLine2 : '' }}
+                  </p>
+                  <p class="record__detail">
+                    {{ address.city }}{{ address.province ? ', ' + address.province : '' }}
+                    {{ address.postalCode }}
+                  </p>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <section class="card detail-section">
+        <header class="section-head">
+          <h2 class="detail-section__title">Documents</h2>
+          @if (canManage()) {
+            <button type="button" class="btn btn--ghost btn--sm" (click)="addDocument()">
+              Add
+            </button>
+          }
+        </header>
+
+        @if (!person.documents || person.documents.length === 0) {
+          <p class="muted">No documents on file.</p>
+        } @else {
+          <ul class="record-list">
+            @for (document of person.documents; track document.id) {
+              <li class="record">
+                <div>
+                  <p class="record__title">{{ document.documentType }}</p>
+                  <p class="record__detail mono">{{ document.documentNumber }}</p>
+                  @if (document.expiryDate) {
+                    <p class="record__detail">
+                      Expires {{ document.expiryDate }}
+                      @if (document.expired) {
+                        · expired
+                      }
+                    </p>
+                  }
+                </div>
+                <div class="record__side">
+                  @if (document.expired) {
+                    <app-status-badge tone="danger" label="Expired" />
+                  } @else if (document.verified) {
+                    <app-status-badge tone="success" label="Verified" />
+                  }
+                  @if (document.storageKey) {
+                    <button
+                      type="button"
+                      class="btn btn--ghost btn--sm"
+                      (click)="
+                        downloadDocument(
+                          document.storageKey,
+                          document.documentType + '-' + document.documentNumber
+                        )
+                      "
+                    >
+                      Download
+                    </button>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <section class="card detail-section">
+        <header class="section-head">
+          <h2 class="detail-section__title">Preferences</h2>
+          @if (canManage()) {
+            <button type="button" class="btn btn--ghost btn--sm" (click)="addPreference()">
+              Add
+            </button>
+          }
+        </header>
+
+        @if (preferencePairs().length === 0) {
+          <p class="muted">Nothing recorded. Preferences drive what a campaign offers.</p>
+        } @else {
+          <dl class="detail-facts">
+            @for (pair of preferencePairs(); track pair.key) {
+              <div>
+                <dt>{{ pair.key }}</dt>
+                <dd>{{ pair.value || '—' }}</dd>
+              </div>
+            }
+          </dl>
+        }
+      </section>
+    </div>
+  </div>
+}
+
+@if (editor(); as which) {
+  <app-drawer
+    eyebrow="Customer"
+    [title]="
+      {
+        customer: 'Edit customer',
+        address: 'Add address',
+        document: 'Add document',
+        activity: 'Log activity',
+        'follow-up': 'Schedule follow-up',
+        preference: 'Add preference',
+      }[which]
+    "
+    [subtitle]="customer()?.fullName ?? ''"
+    [size]="which === 'customer' ? 'lg' : 'md'"
+    [closeOnBackdrop]="false"
+    (dismiss)="close()"
+  >
+    @if (formError(); as message) {
+      <p class="form-error">{{ message }}</p>
+    }
+
+    @switch (which) {
+      @case ('customer') {
+        <form [formGroup]="customerForm" (ngSubmit)="save()" id="profile-form">
+          <div class="form-grid">
+            <app-form-field
+              label="Full name"
+              [required]="true"
+              [control]="customerForm.controls.fullName"
+              [submitted]="submitted()"
+              for="pf-name"
+            >
+              <input id="pf-name" class="input" formControlName="fullName" />
+            </app-form-field>
+            <app-form-field
+              label="Phone"
+              [required]="true"
+              [control]="customerForm.controls.phone"
+              [submitted]="submitted()"
+              for="pf-phone"
+            >
+              <input id="pf-phone" class="input mono" formControlName="phone" />
+            </app-form-field>
+            <app-form-field
+              label="Alternate phone"
+              [control]="customerForm.controls.alternatePhone"
+              [submitted]="submitted()"
+              for="pf-alt"
+            >
+              <input id="pf-alt" class="input mono" formControlName="alternatePhone" />
+            </app-form-field>
+            <app-form-field
+              label="Email"
+              [control]="customerForm.controls.email"
+              [submitted]="submitted()"
+              for="pf-email"
+            >
+              <input id="pf-email" class="input" type="email" formControlName="email" />
+            </app-form-field>
+            <app-form-field
+              label="Date of birth"
+              [control]="customerForm.controls.dateOfBirth"
+              [submitted]="submitted()"
+              for="pf-dob"
+            >
+              <input id="pf-dob" class="input" type="date" formControlName="dateOfBirth" />
+            </app-form-field>
+            <app-form-field
+              label="Anniversary"
+              [control]="customerForm.controls.anniversaryDate"
+              [submitted]="submitted()"
+              for="pf-anniversary"
+            >
+              <input
+                id="pf-anniversary"
+                class="input"
+                type="date"
+                formControlName="anniversaryDate"
+              />
+            </app-form-field>
+            <app-form-field
+              label="Gender"
+              [control]="customerForm.controls.gender"
+              [submitted]="submitted()"
+              for="pf-gender"
+            >
+              <input id="pf-gender" class="input" formControlName="gender" />
+            </app-form-field>
+            <app-form-field
+              label="Tax number"
+              [control]="customerForm.controls.taxNumber"
+              [submitted]="submitted()"
+              for="pf-tax"
+            >
+              <input id="pf-tax" class="input mono" formControlName="taxNumber" />
+            </app-form-field>
+            <app-form-field
+              class="form-grid__full"
+              label="Notes"
+              [control]="customerForm.controls.notes"
+              [submitted]="submitted()"
+              for="pf-notes"
+            >
+              <textarea id="pf-notes" class="textarea" rows="2" formControlName="notes"></textarea>
+            </app-form-field>
+          </div>
+        </form>
+      }
+
+      @case ('address') {
+        <form [formGroup]="addressForm" (ngSubmit)="save()" id="profile-form">
+          <div class="form-grid">
+            <app-form-field
+              label="Type"
+              [control]="addressForm.controls.addressType"
+              [submitted]="submitted()"
+              for="ad-type"
+            >
+              <input id="ad-type" class="input" formControlName="addressType" />
+            </app-form-field>
+            <div></div>
+            <app-form-field
+              class="form-grid__full"
+              label="Address line 1"
+              [required]="true"
+              [control]="addressForm.controls.addressLine1"
+              [submitted]="submitted()"
+              for="ad-line1"
+            >
+              <input id="ad-line1" class="input" formControlName="addressLine1" />
+            </app-form-field>
+            <app-form-field
+              class="form-grid__full"
+              label="Address line 2"
+              [control]="addressForm.controls.addressLine2"
+              [submitted]="submitted()"
+              for="ad-line2"
+            >
+              <input id="ad-line2" class="input" formControlName="addressLine2" />
+            </app-form-field>
+            <app-form-field
+              label="City"
+              [control]="addressForm.controls.city"
+              [submitted]="submitted()"
+              for="ad-city"
+            >
+              <input id="ad-city" class="input" formControlName="city" />
+            </app-form-field>
+            <app-form-field
+              label="State / province"
+              [control]="addressForm.controls.province"
+              [submitted]="submitted()"
+              for="ad-province"
+            >
+              <input id="ad-province" class="input" formControlName="province" />
+            </app-form-field>
+            <app-form-field
+              label="Postal code"
+              [control]="addressForm.controls.postalCode"
+              [submitted]="submitted()"
+              for="ad-postal"
+            >
+              <input id="ad-postal" class="input mono" formControlName="postalCode" />
+            </app-form-field>
+            <app-form-field
+              label="Country"
+              [control]="addressForm.controls.country"
+              [submitted]="submitted()"
+              for="ad-country"
+            >
+              <input id="ad-country" class="input" formControlName="country" />
+            </app-form-field>
+            <div class="form-grid__full">
+              <label class="checkbox">
+                <input type="checkbox" formControlName="defaultAddress" />
+                <span>Default address</span>
+              </label>
+            </div>
+          </div>
+        </form>
+      }
+
+      @case ('document') {
+        <form [formGroup]="documentForm" (ngSubmit)="save()" id="profile-form">
+          <div class="form-grid">
+            <app-form-field
+              label="Document type"
+              [required]="true"
+              hint="e.g. PAN, Aadhaar, Passport."
+              [control]="documentForm.controls.documentType"
+              [submitted]="submitted()"
+              for="dc-type"
+            >
+              <input id="dc-type" class="input" formControlName="documentType" />
+            </app-form-field>
+            <app-form-field
+              label="Number"
+              [required]="true"
+              [control]="documentForm.controls.documentNumber"
+              [submitted]="submitted()"
+              for="dc-number"
+            >
+              <input
+                id="dc-number"
+                class="input mono"
+                formControlName="documentNumber"
+                autocomplete="off"
+              />
+            </app-form-field>
+            <app-form-field
+              label="Issued"
+              [control]="documentForm.controls.issueDate"
+              [submitted]="submitted()"
+              for="dc-issued"
+            >
+              <input id="dc-issued" class="input" type="date" formControlName="issueDate" />
+            </app-form-field>
+            <app-form-field
+              label="Expires"
+              [control]="documentForm.controls.expiryDate"
+              [submitted]="submitted()"
+              for="dc-expires"
+            >
+              <input id="dc-expires" class="input" type="date" formControlName="expiryDate" />
+            </app-form-field>
+
+            <div class="form-grid__full">
+              <span class="field-label">Scan</span>
+              <input
+                id="dc-file"
+                class="input"
+                type="file"
+                accept="application/pdf,image/*"
+                [disabled]="uploading()"
+                (change)="onDocumentFile($event)"
+              />
+              @if (uploading()) {
+                <p class="field-hint">Uploading…</p>
+              } @else if (uploadedName(); as name) {
+                <p class="field-hint">Attached: {{ name }}</p>
+              } @else {
+                <p class="field-hint">Optional. Stored separately and referenced by key.</p>
+              }
+            </div>
+          </div>
+        </form>
+      }
+
+      @case ('activity') {
+        <form [formGroup]="activityForm" (ngSubmit)="save()" id="profile-form">
+          <div class="form-grid">
+            <app-form-field
+              class="form-grid__full"
+              label="Type"
+              [required]="true"
+              [control]="activityForm.controls.activityType"
+              [submitted]="submitted()"
+              for="ac-type"
+            >
+              <select id="ac-type" class="select" formControlName="activityType">
+                @for (type of activityTypes; track type.value) {
+                  <option [value]="type.value">{{ type.label }}</option>
+                }
+              </select>
+            </app-form-field>
+            <app-form-field
+              class="form-grid__full"
+              label="Subject"
+              [required]="true"
+              [control]="activityForm.controls.subject"
+              [submitted]="submitted()"
+              for="ac-subject"
+            >
+              <input id="ac-subject" class="input" formControlName="subject" />
+            </app-form-field>
+            <app-form-field
+              class="form-grid__full"
+              label="Details"
+              [control]="activityForm.controls.details"
+              [submitted]="submitted()"
+              for="ac-details"
+            >
+              <textarea
+                id="ac-details"
+                class="textarea"
+                rows="3"
+                formControlName="details"
+              ></textarea>
+            </app-form-field>
+          </div>
+        </form>
+      }
+
+      @case ('follow-up') {
+        <form [formGroup]="followUpForm" (ngSubmit)="save()" id="profile-form">
+          <div class="form-grid">
+            <app-form-field
+              class="form-grid__full"
+              label="Title"
+              [required]="true"
+              [control]="followUpForm.controls.title"
+              [submitted]="submitted()"
+              for="fu-title"
+            >
+              <input id="fu-title" class="input" formControlName="title" />
+            </app-form-field>
+            <app-form-field
+              label="Due date"
+              [required]="true"
+              [control]="followUpForm.controls.dueDate"
+              [submitted]="submitted()"
+              for="fu-due"
+            >
+              <input id="fu-due" class="input" type="date" formControlName="dueDate" />
+            </app-form-field>
+            <app-form-field
+              label="Assigned to"
+              [required]="true"
+              hint="The username who owns it."
+              [control]="followUpForm.controls.assignedTo"
+              [submitted]="submitted()"
+              for="fu-assigned"
+            >
+              <input id="fu-assigned" class="input mono" formControlName="assignedTo" />
+            </app-form-field>
+            <app-form-field
+              label="Priority"
+              [control]="followUpForm.controls.priority"
+              [submitted]="submitted()"
+              for="fu-priority"
+            >
+              <select id="fu-priority" class="select" formControlName="priority">
+                <option value="LOW">Low</option>
+                <option value="NORMAL">Normal</option>
+                <option value="HIGH">High</option>
+              </select>
+            </app-form-field>
+            <app-form-field
+              class="form-grid__full"
+              label="Details"
+              [control]="followUpForm.controls.details"
+              [submitted]="submitted()"
+              for="fu-details"
+            >
+              <textarea
+                id="fu-details"
+                class="textarea"
+                rows="3"
+                formControlName="details"
+              ></textarea>
+            </app-form-field>
+          </div>
+        </form>
+      }
+
+      @case ('preference') {
+        <form [formGroup]="preferenceForm" (ngSubmit)="save()" id="profile-form">
+          <div class="form-grid">
+            <app-form-field
+              label="Preference"
+              [required]="true"
+              hint="e.g. METAL, STYLE, CONTACT_TIME."
+              [control]="preferenceForm.controls.key"
+              [submitted]="submitted()"
+              for="pr-key"
+            >
+              <input id="pr-key" class="input mono" formControlName="key" />
+            </app-form-field>
+            <app-form-field
+              label="Value"
+              [control]="preferenceForm.controls.value"
+              [submitted]="submitted()"
+              for="pr-value"
+            >
+              <input id="pr-value" class="input" formControlName="value" />
+            </app-form-field>
+          </div>
+        </form>
+      }
+    }
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Cancel</button>
+      <button type="submit" form="profile-form" class="btn btn--primary" [disabled]="saving()">
+        @if (saving()) {
+          <app-spinner [size]="14" />
+        }
+        Save
+      </button>
+    </ng-container>
+  </app-drawer>
+}

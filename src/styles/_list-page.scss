@@ -1,0 +1,340 @@
+@use 'mixins' as *;
+
+// Layout shared by every master-data screen: a page header, a card holding the
+// toolbar, filters, table and pager, and the form grid used inside the drawer
+// that edits a row. Kept global so the list screens stay identical rather than
+// each re-deriving the same spacing.
+
+.list-card {
+  @include card;
+  padding: 0;
+  overflow: hidden;
+}
+
+.list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  flex-wrap: wrap;
+}
+
+// Inline selects in the toolbar size to their content rather than filling it.
+.list-toolbar .select {
+  width: auto;
+  min-width: 200px;
+  max-width: 280px;
+}
+
+.list-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.list-actions {
+  display: inline-flex;
+  gap: var(--space-1);
+  justify-content: flex-end;
+}
+
+// Two cells stacked in one column, e.g. a name above its code.
+.cell-stack {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cell-stack__primary {
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.cell-stack__secondary {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--surface-sunken);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+// --- drawer forms ----------------------------------------------------------
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+
+  @media (max-width: 640px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.form-grid__full {
+  grid-column: 1 / -1;
+}
+
+.form-section {
+  display: grid;
+  gap: var(--space-4);
+
+  & + & {
+    margin-top: var(--space-6);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+.form-section__title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.form-error {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  font-size: var(--text-sm);
+}
+
+// A scrollable box of checkboxes — role and branch assignment, permissions.
+.option-list {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 240px;
+  overflow-y: auto;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.option-list__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: pointer;
+
+  input {
+    margin-top: 3px;
+    accent-color: var(--accent);
+  }
+}
+
+.option-list__label {
+  display: grid;
+  gap: 1px;
+  font-size: var(--text-sm);
+}
+
+.option-list__hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+// --- tabbed master screens -------------------------------------------------
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tabs__tab {
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out);
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+
+.tabs__tab--active {
+  border-bottom-color: var(--accent);
+  color: var(--text-primary);
+}
+
+// --- record detail pages ---------------------------------------------------
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+
+  @media (max-width: 900px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.detail-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+
+  dt {
+    margin-bottom: 2px;
+    font-size: var(--text-xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  dd {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+  }
+}
+
+.detail-section {
+  & + & {
+    margin-top: var(--space-4);
+  }
+}
+
+.detail-section__title {
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+// Filter row rendered under a master panel's toolbar.
+.panel-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  padding: 0 var(--space-4) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+
+.panel-filters__field {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 180px;
+}
+
+.cell-stack--end {
+  justify-items: end;
+  text-align: right;
+}
+
+.form-note {
+  margin-top: var(--space-4);
+  font-size: var(--text-xs);
+}
+
+// --- report and detail grids ------------------------------------------------
+//
+// Cards in these grids stretch to a common height per row rather than sizing to
+// their own content. Content-sized cards leave a ragged edge wherever one card
+// happens to be taller than its neighbours, which is what makes a dashboard
+// look unfinished.
+
+.metric-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.report-grid {
+  // Two columns at desktop rather than auto-fit. Auto-fit picks whatever number
+  // of tracks happens to fit, which strands a lone card at a third of a row
+  // whenever the section count does not divide evenly.
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+
+  > * {
+    // Grid items default to min-content width, which lets a wide table push its
+    // own column out; this keeps every card inside its track.
+    min-width: 0;
+  }
+}
+
+// A card that leads a row on its own — used to keep an odd section count from
+// stranding one card in half a row.
+.report-grid__wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .report-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// --- KPI tile ---------------------------------------------------------------
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.kpi__label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.kpi__value {
+  font-family: var(--font-sans);
+  font-size: 1.75rem;
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+
+.kpi__note {
+  margin-top: auto;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+// Emphasis variants of the KPI tile.
+.kpi--accent {
+  border-color: var(--accent);
+}
+
+.kpi--alert {
+  border-color: var(--danger);
+
+  .kpi__value {
+    color: var(--danger-text);
+  }
+}

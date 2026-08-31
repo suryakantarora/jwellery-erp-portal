@@ -1,0 +1,131 @@
+@use '../../../../styles/mixins' as *;
+
+.metric {
+  @include card;
+  position: relative;
+  padding: var(--space-5);
+  overflow: hidden;
+  transition: box-shadow var(--duration-base) var(--ease-out);
+
+  &:hover {
+    box-shadow: var(--shadow-sm);
+  }
+
+  // Everything above the flourish.
+  > *:not(.metric__flourish) {
+    position: relative;
+    z-index: 1;
+  }
+
+  // A hairline of the tile's tone, rather than a fully coloured card: six
+  // saturated tiles in a row would fight each other for attention.
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--tile-accent, var(--border-strong));
+  }
+}
+
+.metric__flourish {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  width: 62%;
+  max-width: 170px;
+  height: auto;
+  color: var(--tile-accent, var(--border-strong));
+  opacity: 0.24;
+  pointer-events: none;
+}
+
+.metric--success {
+  --tile-accent: var(--success);
+}
+.metric--warning {
+  --tile-accent: var(--warning);
+}
+.metric--danger {
+  --tile-accent: var(--danger);
+}
+.metric--info {
+  --tile-accent: var(--info);
+}
+.metric--accent {
+  --tile-accent: var(--accent);
+}
+.metric--neutral {
+  --tile-accent: var(--border-strong);
+}
+
+.metric__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.metric__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--tile-accent, var(--text-secondary));
+}
+
+.metric__label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  @include truncate;
+}
+
+// A figure is read, not admired: tabular sans keeps digits in vertical columns
+// across the row, which the display serif's proportional figures did not.
+.metric__value {
+  position: relative;
+  margin-top: var(--space-4);
+  font-family: var(--font-sans);
+  font-size: clamp(1.5rem, 1.1rem + 1.2vw, 1.95rem);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.metric__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.metric__delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-xs);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric__delta--up {
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+.metric__delta--down {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.metric__caption {
+  @include truncate;
+}

@@ -1,0 +1,8 @@
+.repair-text {
+  font-size: var(--text-sm);
+  line-height: 1.6;
+
+  & + & {
+    margin-top: var(--space-2);
+  }
+}

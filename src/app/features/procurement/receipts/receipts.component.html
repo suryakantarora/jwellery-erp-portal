@@ -1,0 +1,336 @@
+<ng-template #refCell let-row>
+  <span class="cell-stack">
+    <span class="cell-stack__primary mono">{{ row.receiptNumber }}</span>
+    @if (row.createdBy) {
+      <span class="cell-stack__secondary">{{ row.createdBy }}</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #statusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<ng-template #actionsCell let-row>
+  <span class="list-actions">
+    <button
+      type="button"
+      class="btn btn--ghost btn--sm"
+      (click)="view(row); $event.stopPropagation()"
+    >
+      Open
+    </button>
+    @if (row.status === 'PENDING_QUALITY_CHECK' && canReceive()) {
+      <button
+        type="button"
+        class="btn btn--secondary btn--sm"
+        [disabled]="saving()"
+        (click)="accept(row); $event.stopPropagation()"
+      >
+        Accept
+      </button>
+      <button
+        type="button"
+        class="btn btn--danger-ghost btn--sm"
+        [disabled]="saving()"
+        (click)="reject(row); $event.stopPropagation()"
+      >
+        Reject
+      </button>
+    }
+  </span>
+</ng-template>
+
+<app-master-panel
+  title="Goods receipt"
+  eyebrow="Procurement"
+  description="Receiving against an order, piece by piece. Accepting at quality check is what creates the stock."
+  [columns]="columns"
+  [page]="result()"
+  [loading]="loading()"
+  [error]="error()"
+  [sort]="sort()"
+  [trackBy]="trackById"
+  [cellTemplates]="templates()"
+  [searchable]="false"
+  [canManage]="canReceive()"
+  createLabel="Receive against an order"
+  emptyTitle="Nothing received"
+  emptyMessage="Receive an approved purchase order to bring stock in."
+  [editing]="creating() ? 'new' : null"
+  drawerTitle="Receive goods"
+  drawerSubtitle="Each line becomes one serialized piece. Weigh and tag them as they are unpacked."
+  drawerSize="lg"
+  formId="receipt-form"
+  [saving]="saving()"
+  saveLabel="Raise receipt"
+  (create)="startCreate()"
+  (rowClick)="view($event)"
+  (sortChange)="onSort($event)"
+  (pageChange)="onPage($event)"
+  (sizeChange)="onSizeChange($event)"
+  (retry)="load()"
+  (dismiss)="close()"
+>
+  <div panelFilters class="panel-filters">
+    <label class="panel-filters__field">
+      <span class="field-label">Status</span>
+      <select class="select" (change)="onStatusFilter($event)">
+        <option value="">All statuses</option>
+        @for (status of statuses; track status.value) {
+          <option [value]="status.value" [selected]="status.value === statusFilter()">
+            {{ status.label }}
+          </option>
+        }
+      </select>
+    </label>
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="save()" id="receipt-form">
+    @if (formError(); as message) {
+      <p class="form-error">{{ message }}</p>
+    }
+
+    <div class="form-grid">
+      <app-form-field
+        class="form-grid__full"
+        label="Purchase order"
+        [required]="true"
+        [control]="form.controls.purchaseOrderId"
+        [submitted]="submitted()"
+        for="gr-order"
+      >
+        <select
+          id="gr-order"
+          class="select"
+          formControlName="purchaseOrderId"
+          (change)="onOrderChange($event)"
+        >
+          <option value="" disabled>Select an approved order</option>
+          @for (order of receivableOrders(); track order.id) {
+            <option [value]="order.id">
+              {{ order.orderNumber }} — {{ supplierName(order.supplierId) }}
+            </option>
+          }
+        </select>
+      </app-form-field>
+
+      <app-form-field
+        label="Receipt date"
+        [control]="form.controls.receiptDate"
+        [submitted]="submitted()"
+        for="gr-date"
+      >
+        <input id="gr-date" class="input" type="date" formControlName="receiptDate" />
+      </app-form-field>
+
+      <app-form-field
+        label="Supplier delivery note"
+        [control]="form.controls.supplierDeliveryNote"
+        [submitted]="submitted()"
+        for="gr-note"
+      >
+        <input id="gr-note" class="input mono" formControlName="supplierDeliveryNote" />
+      </app-form-field>
+
+      <app-form-field
+        class="form-grid__full"
+        label="Notes"
+        [control]="form.controls.notes"
+        [submitted]="submitted()"
+        for="gr-notes"
+      >
+        <input id="gr-notes" class="input" formControlName="notes" />
+      </app-form-field>
+    </div>
+
+    <div class="form-section">
+      <h3 class="form-section__title">Pieces received</h3>
+
+      @if (!chosenOrder()) {
+        <p class="muted">Choose an order and its outstanding pieces are laid out here.</p>
+      } @else if (lines().length === 0) {
+        <p class="muted">This order has nothing outstanding.</p>
+      } @else {
+        @for (line of lines(); track trackLine(line)) {
+          <article class="receipt-line">
+            <header class="receipt-line__header">
+              <span class="receipt-line__product">{{ productName(line.orderLine.productId) }}</span>
+              <button
+                type="button"
+                class="btn btn--danger-ghost btn--sm"
+                (click)="removeLine(line.key)"
+              >
+                Not received
+              </button>
+            </header>
+
+            <div class="receipt-line__fields">
+              <label class="draft-line__field">
+                <span class="field-label">Gross weight (g)</span>
+                <input
+                  class="input numeric"
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  [formControl]="line.grossWeight"
+                />
+              </label>
+              <label class="draft-line__field">
+                <span class="field-label">Stone weight (g)</span>
+                <input
+                  class="input numeric"
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  [formControl]="line.stoneWeight"
+                />
+              </label>
+              <label class="draft-line__field">
+                <span class="field-label">Purchase cost</span>
+                <input
+                  class="input numeric"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  [formControl]="line.purchaseCost"
+                />
+              </label>
+              <label class="draft-line__field">
+                <span class="field-label">Making cost</span>
+                <input
+                  class="input numeric"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  [formControl]="line.makingCost"
+                />
+              </label>
+              <label class="draft-line__field">
+                <span class="field-label">Stone cost</span>
+                <input
+                  class="input numeric"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  [formControl]="line.stoneCost"
+                />
+              </label>
+              <label class="draft-line__field">
+                <span class="field-label">Hallmark</span>
+                <input class="input mono" [formControl]="line.hallmarkNumber" />
+              </label>
+              <label class="draft-line__field">
+                <span class="field-label">Barcode</span>
+                <input class="input mono" [formControl]="line.barcode" autocomplete="off" />
+              </label>
+              <label class="draft-line__field">
+                <span class="field-label">RFID</span>
+                <input class="input mono" [formControl]="line.rfidTag" autocomplete="off" />
+              </label>
+            </div>
+          </article>
+        }
+      }
+    </div>
+  </form>
+</app-master-panel>
+
+@if (viewing(); as receipt) {
+  <app-drawer
+    eyebrow="Procurement"
+    [title]="receipt.receiptNumber"
+    [subtitle]="supplierName(receipt.supplierId)"
+    size="lg"
+    (dismiss)="close()"
+  >
+    <dl class="detail-facts">
+      <div>
+        <dt>Status</dt>
+        <dd><app-status-badge [status]="receipt.status" /></dd>
+      </div>
+      <div>
+        <dt>Received</dt>
+        <dd>{{ receipt.receiptDate }}</dd>
+      </div>
+      <div>
+        <dt>Delivery note</dt>
+        <dd class="mono">{{ receipt.supplierDeliveryNote ?? '—' }}</dd>
+      </div>
+      @if (receipt.qualityCheckedAt) {
+        <div>
+          <dt>Quality checked</dt>
+          <dd>{{ receipt.qualityCheckedAt | relativeTime }} · {{ receipt.qualityCheckedBy }}</dd>
+        </div>
+      }
+    </dl>
+
+    @if (receipt.rejectionReason) {
+      <p class="form-error">{{ receipt.rejectionReason }}</p>
+    }
+    @if (receipt.notes) {
+      <p class="muted detail-note">{{ receipt.notes }}</p>
+    }
+
+    <div class="form-section">
+      <h3 class="form-section__title">Pieces ({{ receipt.lines.length }})</h3>
+      <ul class="record-list">
+        @for (line of receipt.lines; track line.id) {
+          <li class="record">
+            <div>
+              <p class="record__title">{{ productName(line.productId) }}</p>
+              <p class="record__detail numeric">
+                {{ line.grossWeight }} g gross
+                @if (line.stoneWeight) {
+                  · {{ line.stoneWeight }} g stones
+                }
+                @if (line.rfidTag) {
+                  · RFID {{ line.rfidTag }}
+                }
+              </p>
+            </div>
+            <div class="record__side">
+              <p class="record__detail numeric">{{ line.purchaseCost ?? '—' }}</p>
+              @if (line.jewelleryItemId) {
+                <button
+                  type="button"
+                  class="btn btn--ghost btn--sm"
+                  (click)="openItem(line.jewelleryItemId)"
+                >
+                  Open passport
+                </button>
+              } @else {
+                <span class="record__detail muted">Not yet in stock</span>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    </div>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Close</button>
+      @if (receipt.status === 'PENDING_QUALITY_CHECK' && canReceive()) {
+        <button
+          type="button"
+          class="btn btn--danger-ghost"
+          [disabled]="saving()"
+          (click)="reject(receipt)"
+        >
+          Reject
+        </button>
+        <button
+          type="button"
+          class="btn btn--primary"
+          [disabled]="saving()"
+          (click)="accept(receipt)"
+        >
+          @if (saving()) {
+            <app-spinner [size]="14" />
+          }
+          Accept into stock
+        </button>
+      }
+    </ng-container>
+  </app-drawer>
+}

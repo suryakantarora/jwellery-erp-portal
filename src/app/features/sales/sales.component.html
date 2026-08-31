@@ -1,0 +1,634 @@
+<app-page-header
+  title="Sales"
+  eyebrow="Sales"
+  description="Invoices, the quotations behind them, money collected, and the day's close."
+/>
+
+<nav class="tabs" role="tablist" aria-label="Sales sections">
+  @for (entry of tabs; track entry.id) {
+    <button
+      type="button"
+      role="tab"
+      class="tabs__tab"
+      [class.tabs__tab--active]="tab() === entry.id"
+      [attr.aria-selected]="tab() === entry.id"
+      (click)="selectTab(entry.id)"
+    >
+      {{ entry.label }}
+    </button>
+  }
+</nav>
+
+<ng-template #saleRefCell let-row>
+  <span class="cell-stack">
+    <span class="cell-stack__primary mono">{{ row.invoiceNumber ?? row.saleNumber }}</span>
+    @if (row.createdBy) {
+      <span class="cell-stack__secondary">{{ row.createdBy }}</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #saleCustomerCell let-row>
+  {{ customerName(row.customerId) }}
+</ng-template>
+
+<ng-template #saleStatusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<ng-template #saleMoneyCell let-row>
+  <span class="cell-stack cell-stack--end">
+    <span class="numeric">{{ row.totalAmount | number: '1.2-2' }}</span>
+    @if (row.outstandingAmount) {
+      <span class="cell-stack__secondary numeric outstanding">
+        {{ row.outstandingAmount | number: '1.2-2' }} outstanding
+      </span>
+    } @else {
+      <span class="cell-stack__secondary">Paid in full</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #saleActionsCell let-row>
+  <span class="list-actions">
+    <button
+      type="button"
+      class="btn btn--ghost btn--sm"
+      (click)="view(row); $event.stopPropagation()"
+    >
+      Open
+    </button>
+    @if (row.status === 'CONFIRMED' && canSell()) {
+      <button
+        type="button"
+        class="btn btn--secondary btn--sm"
+        [disabled]="saving()"
+        (click)="deliver(row); $event.stopPropagation()"
+      >
+        Deliver
+      </button>
+    }
+  </span>
+</ng-template>
+
+<ng-template #quoteStatusCell let-row>
+  <app-status-badge
+    [status]="row.status"
+    [tone]="row.expired && row.status === 'ISSUED' ? 'danger' : null"
+    [label]="row.expired && row.status === 'ISSUED' ? 'Expired' : null"
+  />
+</ng-template>
+
+<ng-template #quoteCustomerCell let-row>
+  {{ customerName(row.customerId) }}
+</ng-template>
+
+<ng-template #payStatusCell let-row>
+  <span class="chip-row">
+    <app-status-badge [status]="row.status" />
+    @if (row.reconciled) {
+      <span class="chip">Reconciled</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #payMethodCell let-row>
+  <span class="cell-stack">
+    <span>{{ methodLabel(row.method) }}</span>
+    @if (row.cardLastFour) {
+      <span class="cell-stack__secondary mono">•••• {{ row.cardLastFour }}</span>
+    } @else if (row.bankName) {
+      <span class="cell-stack__secondary">{{ row.bankName }}</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #payActionsCell let-row>
+  <span class="list-actions">
+    @if (!row.reconciled && row.status === 'CAPTURED' && canReconcile()) {
+      <button
+        type="button"
+        class="btn btn--ghost btn--sm"
+        (click)="reconcile(row); $event.stopPropagation()"
+      >
+        Reconcile
+      </button>
+    }
+  </span>
+</ng-template>
+
+@switch (tab()) {
+  @case ('sales') {
+    <app-master-panel
+      title="Invoices"
+      eyebrow="Sales"
+      [showHeader]="false"
+      [columns]="saleColumns"
+      [page]="saleList()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="sort()"
+      [trackBy]="trackById"
+      [cellTemplates]="saleTemplates()"
+      [searchable]="false"
+      [canManage]="canSell()"
+      createLabel="New sale"
+      emptyTitle="No sales"
+      emptyMessage="Raise a sale against available stock."
+      [editing]="creating() ? 'new' : null"
+      drawerTitle="New sale"
+      drawerSubtitle="The engine prices each piece at today's rate and records the figures on the invoice."
+      drawerSize="lg"
+      formId="sale-form"
+      [saving]="saving()"
+      saveLabel="Raise sale"
+      (create)="startCreate()"
+      (rowClick)="view($event)"
+      (sortChange)="onSort($event)"
+      (pageChange)="onPage($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="load()"
+      (dismiss)="close()"
+    >
+      <div panelFilters class="panel-filters">
+        <label class="panel-filters__field">
+          <span class="field-label">Status</span>
+          <select class="select" (change)="onStatusFilter($event)">
+            <option value="">All statuses</option>
+            @for (status of saleStatuses; track status.value) {
+              <option [value]="status.value" [selected]="status.value === statusFilter()">
+                {{ status.label }}
+              </option>
+            }
+          </select>
+        </label>
+      </div>
+
+      <form [formGroup]="saleForm" (ngSubmit)="save()" id="sale-form">
+        @if (formError(); as message) {
+          <p class="form-error">{{ message }}</p>
+        }
+
+        <div class="form-grid">
+          <app-form-field
+            label="Customer"
+            [required]="true"
+            [control]="saleForm.controls.customerId"
+            [submitted]="submitted()"
+            for="sl-customer"
+          >
+            <select id="sl-customer" class="select" formControlName="customerId">
+              <option value="" disabled>Select a customer</option>
+              @for (customer of customerList(); track customer.id) {
+                <option [value]="customer.id">
+                  {{ customer.fullName }} · {{ customer.phone }}
+                </option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="Branch"
+            [required]="true"
+            [control]="saleForm.controls.branchId"
+            [submitted]="submitted()"
+            for="sl-branch"
+          >
+            <select
+              id="sl-branch"
+              class="select"
+              formControlName="branchId"
+              (change)="onSaleBranchChange($event)"
+            >
+              @for (branch of branches(); track branch.id) {
+                <option [value]="branch.id">{{ branch.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="Redeem points"
+            hint="Applied at the programme's point value."
+            [control]="saleForm.controls.redeemPoints"
+            [submitted]="submitted()"
+            for="sl-points"
+          >
+            <input
+              id="sl-points"
+              class="input numeric"
+              type="number"
+              min="0"
+              formControlName="redeemPoints"
+            />
+          </app-form-field>
+
+          <app-form-field
+            label="Exchange credit"
+            hint="Value of old gold taken in."
+            [control]="saleForm.controls.exchangeCredit"
+            [submitted]="submitted()"
+            for="sl-exchange"
+          >
+            <input
+              id="sl-exchange"
+              class="input numeric"
+              type="number"
+              step="0.01"
+              min="0"
+              formControlName="exchangeCredit"
+            />
+          </app-form-field>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Notes"
+            [control]="saleForm.controls.notes"
+            [submitted]="submitted()"
+            for="sl-notes"
+          >
+            <input id="sl-notes" class="input" formControlName="notes" />
+          </app-form-field>
+        </div>
+
+        <div class="form-section">
+          <h3 class="form-section__title">
+            Pieces
+            @if (draftCount() > 0) {
+              <span class="muted">· {{ draftCount() }} selected</span>
+            }
+          </h3>
+
+          @if (sellableItems().length === 0) {
+            <p class="muted">No available stock in this branch.</p>
+          } @else {
+            <div class="option-list">
+              @for (item of sellableItems(); track item.id) {
+                <label class="option-list__item">
+                  <input
+                    type="checkbox"
+                    [checked]="isSelected(item.id)"
+                    (change)="toggleItem(item.id)"
+                  />
+                  <span class="option-list__label">
+                    <span class="mono">{{ item.itemCode }}</span>
+                    <span class="option-list__hint numeric">{{ item.grossWeight }} g</span>
+                  </span>
+                </label>
+              }
+            </div>
+          }
+        </div>
+      </form>
+    </app-master-panel>
+  }
+
+  @case ('quotations') {
+    <app-master-panel
+      title="Quotations"
+      eyebrow="Sales"
+      [showHeader]="false"
+      [columns]="quotationColumns"
+      [page]="quotations()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="null"
+      [trackBy]="trackById"
+      [cellTemplates]="quotationTemplates()"
+      [searchable]="false"
+      [canManage]="false"
+      emptyTitle="No quotations"
+      emptyMessage="A quotation prices a set of pieces for a customer to think about."
+      [editing]="null"
+      formId="quotation-form"
+      (pageChange)="onPage($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="load()"
+    />
+  }
+
+  @case ('payments') {
+    <app-master-panel
+      title="Payments"
+      eyebrow="Sales"
+      [showHeader]="false"
+      [columns]="paymentColumns"
+      [page]="payments()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="null"
+      [trackBy]="trackById"
+      [cellTemplates]="paymentTemplates()"
+      [searchable]="false"
+      [canManage]="false"
+      emptyTitle="No payments"
+      emptyMessage="Money collected against an invoice appears here."
+      [editing]="null"
+      formId="payment-list"
+      (pageChange)="onPage($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="load()"
+    />
+  }
+
+  @case ('closing') {
+    <section class="card closing-picker">
+      <label class="closing-picker__field">
+        <span class="field-label">Date</span>
+        <input class="input" type="date" [value]="closingDate()" (change)="onClosingDate($event)" />
+      </label>
+      <button type="button" class="btn btn--ghost" [disabled]="loading()" (click)="loadClosing()">
+        Refresh
+      </button>
+    </section>
+
+    @if (closing(); as day) {
+      <section class="metric-row">
+        <article class="card kpi">
+          <p class="kpi__label">Sales</p>
+          <p class="kpi__value">{{ day.saleCount }}</p>
+          <p class="kpi__note">{{ branchName(day.branchId) }} · {{ day.date }}</p>
+        </article>
+        <article class="card kpi">
+          <p class="kpi__label">Invoiced</p>
+          <p class="kpi__value">{{ day.totalSales | number: '1.2-2' }}</p>
+        </article>
+        <article class="card kpi kpi--accent">
+          <p class="kpi__label">Collected</p>
+          <p class="kpi__value">{{ day.totalCollected | number: '1.2-2' }}</p>
+          <p class="kpi__note">
+            <!-- The gap is not all debt: points and exchange credit settle part of an invoice. -->
+            {{ (day.totalSales ?? 0) - (day.totalCollected ?? 0) | number: '1.2-2' }} settled by
+            points or credit, or still owed
+          </p>
+        </article>
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">By method</h2>
+        @if (day.byMethod.length === 0) {
+          <p class="muted">Nothing was collected on this day.</p>
+        } @else {
+          <ul class="record-list">
+            @for (row of day.byMethod; track row.method) {
+              <li class="record">
+                <span>{{ methodLabel(row.method) }}</span>
+                <span class="numeric">{{ row.amount | number: '1.2-2' }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    }
+  }
+}
+
+@if (viewing(); as sale) {
+  <app-drawer
+    eyebrow="Sales"
+    [title]="sale.invoiceNumber ?? sale.saleNumber"
+    [subtitle]="customerName(sale.customerId)"
+    size="lg"
+    (dismiss)="close()"
+  >
+    <dl class="detail-facts">
+      <div>
+        <dt>Status</dt>
+        <dd><app-status-badge [status]="sale.status" /></dd>
+      </div>
+      <div>
+        <dt>Date</dt>
+        <dd>{{ sale.saleDate }}</dd>
+      </div>
+      <div>
+        <dt>Branch</dt>
+        <dd>{{ branchName(sale.branchId) }}</dd>
+      </div>
+      <div>
+        <dt>Sub-total</dt>
+        <dd class="numeric">{{ sale.subTotal | number: '1.2-2' }}</dd>
+      </div>
+      <div>
+        <dt>Discount</dt>
+        <dd class="numeric">{{ sale.discountTotal | number: '1.2-2' }}</dd>
+      </div>
+      <div>
+        <dt>Tax</dt>
+        <dd class="numeric">{{ sale.taxTotal | number: '1.2-2' }}</dd>
+      </div>
+      @if (sale.loyaltyPointsRedeemed) {
+        <div>
+          <dt>Points redeemed</dt>
+          <dd class="numeric">
+            {{ sale.loyaltyPointsRedeemed }} · {{ sale.loyaltyRedemptionValue | number: '1.2-2' }}
+          </dd>
+        </div>
+      }
+      @if (sale.exchangeCredit) {
+        <div>
+          <dt>Exchange credit</dt>
+          <dd class="numeric">{{ sale.exchangeCredit | number: '1.2-2' }}</dd>
+        </div>
+      }
+      <div>
+        <dt>Total</dt>
+        <dd class="numeric">{{ sale.totalAmount | number: '1.2-2' }}</dd>
+      </div>
+      <div>
+        <dt>Paid</dt>
+        <dd class="numeric">{{ sale.paidAmount | number: '1.2-2' }}</dd>
+      </div>
+      <div>
+        <dt>Outstanding</dt>
+        <dd class="numeric">{{ sale.outstandingAmount | number: '1.2-2' }}</dd>
+      </div>
+    </dl>
+
+    <div class="form-section">
+      <h3 class="form-section__title">Lines</h3>
+      <ul class="record-list">
+        @for (line of sale.lines; track line.id) {
+          <li class="record">
+            <div>
+              <p class="record__title mono">{{ line.itemCode }}</p>
+              <p class="record__detail numeric">
+                {{ line.netMetalWeight }} g × {{ line.metalRatePerUnit }} · making
+                {{ line.makingCharge | number: '1.0-2' }} · tax
+                {{ line.taxAmount | number: '1.0-2' }}
+              </p>
+              @if (line.loyaltyTierCode) {
+                <p class="record__detail">
+                  {{ line.loyaltyTierCode }} tier discount
+                  {{ line.tierDiscountAmount | number: '1.2-2' }}
+                </p>
+              }
+            </div>
+            <div class="record__side">
+              <p class="numeric">{{ line.lineTotal | number: '1.2-2' }}</p>
+              @if (line.returned) {
+                <app-status-badge tone="warning" label="Returned" />
+              }
+            </div>
+          </li>
+        }
+      </ul>
+      <p class="muted form-note">
+        The rate and weight above were copied onto the invoice when the sale was made, so a later
+        rate change cannot alter it.
+      </p>
+    </div>
+
+    <div class="form-section">
+      <h3 class="form-section__title">Payments</h3>
+      @if (salePayments().length === 0) {
+        <p class="muted">Nothing collected yet.</p>
+      } @else {
+        <ul class="record-list">
+          @for (payment of salePayments(); track payment.id) {
+            <li class="record">
+              <div>
+                <p class="record__title mono">{{ payment.paymentNumber }}</p>
+                <p class="record__detail">
+                  {{ methodLabel(payment.method) }} · {{ payment.createdAt | relativeTime }}
+                </p>
+              </div>
+              <div class="record__side">
+                <p class="numeric">{{ payment.amount | number: '1.2-2' }}</p>
+                <app-status-badge [status]="payment.status" />
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Close</button>
+      @if (sale.status !== 'CANCELLED' && sale.outstandingAmount && canCollect()) {
+        <button type="button" class="btn btn--primary" (click)="startCollect()">
+          Record payment
+        </button>
+      }
+      @if (sale.status === 'CONFIRMED' && canSell()) {
+        <button
+          type="button"
+          class="btn btn--secondary"
+          [disabled]="saving()"
+          (click)="deliver(sale)"
+        >
+          Mark delivered
+        </button>
+      }
+      @if (sale.status === 'PENDING_PAYMENT' && canSell()) {
+        <button
+          type="button"
+          class="btn btn--danger-ghost"
+          [disabled]="saving()"
+          (click)="cancel(sale)"
+        >
+          Cancel
+        </button>
+      }
+    </ng-container>
+  </app-drawer>
+}
+
+@if (collecting()) {
+  <app-drawer
+    eyebrow="Sales"
+    title="Record payment"
+    [subtitle]="viewing()?.saleNumber ?? ''"
+    size="md"
+    [closeOnBackdrop]="false"
+    (dismiss)="collecting.set(false)"
+  >
+    <form [formGroup]="paymentForm" (ngSubmit)="collect()" id="collect-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+      <div class="form-grid">
+        <app-form-field
+          label="Method"
+          [required]="true"
+          [control]="paymentForm.controls.method"
+          [submitted]="submitted()"
+          for="pm-method"
+        >
+          <select id="pm-method" class="select" formControlName="method">
+            @for (method of paymentMethods; track method.value) {
+              <option [value]="method.value">{{ method.label }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Amount"
+          [required]="true"
+          [control]="paymentForm.controls.amount"
+          [submitted]="submitted()"
+          for="pm-amount"
+        >
+          <input
+            id="pm-amount"
+            class="input numeric"
+            type="number"
+            step="0.01"
+            min="0"
+            formControlName="amount"
+          />
+        </app-form-field>
+
+        <app-form-field
+          label="Reference"
+          [control]="paymentForm.controls.transactionReference"
+          [submitted]="submitted()"
+          for="pm-reference"
+        >
+          <input id="pm-reference" class="input mono" formControlName="transactionReference" />
+        </app-form-field>
+
+        @if (paymentForm.controls.method.value === 'CARD') {
+          <app-form-field
+            label="Card last four"
+            hint="Exactly four digits."
+            [control]="paymentForm.controls.cardLastFour"
+            [submitted]="submitted()"
+            for="pm-card"
+          >
+            <input id="pm-card" class="input mono" maxlength="4" formControlName="cardLastFour" />
+          </app-form-field>
+        }
+
+        @if (paymentForm.controls.method.value === 'BANK_TRANSFER') {
+          <app-form-field
+            label="Bank"
+            [control]="paymentForm.controls.bankName"
+            [submitted]="submitted()"
+            for="pm-bank"
+          >
+            <input id="pm-bank" class="input" formControlName="bankName" />
+          </app-form-field>
+        }
+
+        <app-form-field
+          class="form-grid__full"
+          label="Notes"
+          [control]="paymentForm.controls.notes"
+          [submitted]="submitted()"
+          for="pm-notes"
+        >
+          <input id="pm-notes" class="input" formControlName="notes" />
+        </app-form-field>
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="collecting.set(false)">Cancel</button>
+      <button type="submit" form="collect-form" class="btn btn--primary" [disabled]="saving()">
+        @if (saving()) {
+          <app-spinner [size]="14" />
+        }
+        Record payment
+      </button>
+    </ng-container>
+  </app-drawer>
+}

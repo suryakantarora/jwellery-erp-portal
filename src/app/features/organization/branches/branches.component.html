@@ -1,0 +1,246 @@
+<app-page-header
+  title="Branches"
+  eyebrow="Organization"
+  description="Showrooms, warehouses and the head office beneath each company."
+>
+  @if (canManage()) {
+    <button
+      type="button"
+      class="btn btn--primary"
+      [disabled]="companies().length === 0"
+      (click)="startCreate()"
+    >
+      New branch
+    </button>
+  }
+</app-page-header>
+
+<section class="list-card">
+  <div class="list-toolbar">
+    <app-search-box placeholder="Search code, name, city…" (search)="onSearch($event)" />
+    <div class="list-toolbar__actions">
+      <button type="button" class="btn btn--ghost btn--sm" (click)="load()" [disabled]="loading()">
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <app-filter-panel [activeCount]="activeFilterCount()" (clear)="clearFilters()">
+    <label class="field-label" for="branch-company-filter">Company</label>
+    <select
+      id="branch-company-filter"
+      class="select"
+      [value]="companyFilter()"
+      (change)="onCompanyFilter($event)"
+    >
+      <option value="">All companies</option>
+      @for (company of companies(); track company.id) {
+        <option [value]="company.id" [selected]="company.id === companyFilter()">
+          {{ company.name }}
+        </option>
+      }
+    </select>
+  </app-filter-panel>
+
+  <app-data-table
+    [columns]="columns"
+    [rows]="result().content"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="sort()"
+    [trackBy]="trackById"
+    [rowClickable]="true"
+    emptyTitle="No branches"
+    emptyMessage="Create a branch under a company to begin."
+    (sortChange)="onSort($event)"
+    (rowClick)="startEdit($event)"
+    (retry)="load()"
+  >
+    <ng-template appCell="name" [appCellOf]="result().content" let-row>
+      <span class="cell-stack">
+        <span class="cell-stack__primary">{{ row.name }}</span>
+        @if (row.headOffice) {
+          <span class="cell-stack__secondary">Head office</span>
+        }
+      </span>
+    </ng-template>
+
+    <ng-template appCell="companyId" [appCellOf]="result().content" let-row>
+      {{ companyName(row.companyId) }}
+    </ng-template>
+
+    <ng-template appCell="status" [appCellOf]="result().content" let-row>
+      <app-status-badge [status]="row.status" />
+    </ng-template>
+
+    <ng-template appCell="actions" [appCellOf]="result().content" let-row>
+      <span class="list-actions">
+        <button
+          type="button"
+          class="btn btn--ghost btn--sm"
+          (click)="startEdit(row); $event.stopPropagation()"
+        >
+          {{ canManage() ? 'Edit' : 'View' }}
+        </button>
+        @if (canManage() && row.status === 'ACTIVE') {
+          <button
+            type="button"
+            class="btn btn--danger-ghost btn--sm"
+            (click)="deactivate(row); $event.stopPropagation()"
+          >
+            Deactivate
+          </button>
+        }
+      </span>
+    </ng-template>
+  </app-data-table>
+
+  <app-pagination
+    [page]="result().page"
+    [size]="result().size"
+    [totalElements]="result().totalElements"
+    [totalPages]="result().totalPages"
+    (pageChange)="onPage($event)"
+    (sizeChange)="onSizeChange($event)"
+  />
+</section>
+
+@if (editing(); as target) {
+  <app-drawer
+    eyebrow="Organization"
+    [title]="target === 'new' ? 'New branch' : target.name"
+    [subtitle]="target === 'new' ? 'Add a branch to a company.' : 'Branch ' + target.code"
+    size="lg"
+    [closeOnBackdrop]="false"
+    (dismiss)="close()"
+  >
+    <form [formGroup]="form" (ngSubmit)="save()" id="branch-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+
+      <div class="form-section">
+        <div class="form-grid">
+          <app-form-field
+            class="form-grid__full"
+            label="Company"
+            [required]="true"
+            [hint]="target === 'new' ? '' : 'A branch cannot be moved to another company.'"
+            [control]="form.controls.companyId"
+            [submitted]="submitted()"
+            for="branch-company"
+          >
+            <select id="branch-company" class="select" formControlName="companyId">
+              <option value="" disabled>Select a company</option>
+              @for (company of companies(); track company.id) {
+                <option [value]="company.id">{{ company.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="form.controls.code"
+            [submitted]="submitted()"
+            for="branch-code"
+          >
+            <input id="branch-code" class="input mono" formControlName="code" autocomplete="off" />
+          </app-form-field>
+
+          <app-form-field
+            label="Name"
+            [required]="true"
+            [control]="form.controls.name"
+            [submitted]="submitted()"
+            for="branch-name"
+          >
+            <input id="branch-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <div class="form-grid__full">
+            <label class="checkbox">
+              <input type="checkbox" formControlName="headOffice" />
+              <span>This branch is the head office</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3 class="form-section__title">Address and contact</h3>
+        <div class="form-grid">
+          <app-form-field
+            class="form-grid__full"
+            label="Address"
+            [control]="form.controls.addressLine"
+            [submitted]="submitted()"
+            for="branch-address"
+          >
+            <input id="branch-address" class="input" formControlName="addressLine" />
+          </app-form-field>
+
+          <app-form-field
+            label="City"
+            [control]="form.controls.city"
+            [submitted]="submitted()"
+            for="branch-city"
+          >
+            <input id="branch-city" class="input" formControlName="city" />
+          </app-form-field>
+
+          <app-form-field
+            label="Country"
+            [control]="form.controls.country"
+            [submitted]="submitted()"
+            for="branch-country"
+          >
+            <input id="branch-country" class="input" formControlName="country" />
+          </app-form-field>
+
+          <app-form-field
+            label="Phone"
+            [control]="form.controls.phone"
+            [submitted]="submitted()"
+            for="branch-phone"
+          >
+            <input id="branch-phone" class="input" formControlName="phone" />
+          </app-form-field>
+
+          <app-form-field
+            label="Email"
+            [control]="form.controls.email"
+            [submitted]="submitted()"
+            for="branch-email"
+          >
+            <input id="branch-email" class="input" type="email" formControlName="email" />
+          </app-form-field>
+
+          <app-form-field
+            label="Timezone"
+            hint="e.g. Asia/Kolkata"
+            [control]="form.controls.timezone"
+            [submitted]="submitted()"
+            for="branch-tz"
+          >
+            <input id="branch-tz" class="input mono" formControlName="timezone" />
+          </app-form-field>
+        </div>
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">
+        {{ canManage() ? 'Cancel' : 'Close' }}
+      </button>
+      @if (canManage()) {
+        <button type="submit" form="branch-form" class="btn btn--primary" [disabled]="saving()">
+          @if (saving()) {
+            <app-spinner [size]="14" />
+          }
+          {{ target === 'new' ? 'Create branch' : 'Save changes' }}
+        </button>
+      }
+    </ng-container>
+  </app-drawer>
+}

@@ -1,0 +1,108 @@
+@use '../../../styles/mixins' as *;
+
+.notifications { position: relative; }
+
+.notifications__trigger { position: relative; }
+
+.notifications__badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+}
+
+.notifications__panel {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  max-width: calc(100vw - var(--space-8));
+  max-height: 480px;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  animation: drop var(--duration-fast) var(--ease-out);
+}
+
+.notifications__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.notifications__title {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+
+.notifications__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  @include scrollbar;
+}
+
+.notifications__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notifications__item {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+
+  &:last-child { border-bottom: 0; }
+  &:hover { background: var(--surface-hover); }
+}
+
+.notifications__item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.notifications__event {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  @include truncate;
+}
+
+.notifications__subject {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  @include clamp-lines(2);
+}
+
+.notifications__meta {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.notifications__footer {
+  padding: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  text-align: center;
+}
+
+@keyframes drop {
+  from { opacity: 0; transform: translateY(-4px); }
+}

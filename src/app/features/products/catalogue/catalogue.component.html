@@ -1,0 +1,352 @@
+<ng-template #statusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<ng-template #skuCell let-row>
+  <span class="cell-stack">
+    <span class="cell-stack__primary">{{ row.name }}</span>
+    @if (row.description) {
+      <span class="cell-stack__secondary">{{ row.description }}</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #weightCell let-row>
+  @if (row.nominalGrossWeight) {
+    <span class="numeric">{{ row.nominalGrossWeight }} g</span>
+  } @else {
+    <span class="muted">—</span>
+  }
+</ng-template>
+
+<app-master-panel
+  title="Product catalogue"
+  eyebrow="Products"
+  description="Every SKU the business sells, with the metal, weight and pricing defaults behind it."
+  [columns]="columns"
+  [page]="result()"
+  [loading]="loading()"
+  [error]="error()"
+  [sort]="sort()"
+  [trackBy]="trackById"
+  [cellTemplates]="templates()"
+  [canManage]="canCreate()"
+  createLabel="New product"
+  searchPlaceholder="Search SKU or name…"
+  emptyTitle="No products"
+  emptyMessage="Create a product to start the catalogue."
+  [editing]="creating() ? 'new' : null"
+  drawerTitle="New product"
+  drawerSubtitle="Pick a design to pre-fill what the design already decides."
+  drawerSize="lg"
+  formId="product-form"
+  [saving]="saving()"
+  saveLabel="Create product"
+  (create)="startCreate()"
+  (rowClick)="openProduct($event)"
+  (search)="onSearch($event)"
+  (sortChange)="onSort($event)"
+  (pageChange)="onPage($event)"
+  (sizeChange)="onSizeChange($event)"
+  (retry)="load()"
+  (dismiss)="close()"
+>
+  <div panelFilters class="panel-filters">
+    <label class="panel-filters__field">
+      <span class="field-label">Category</span>
+      <select class="select" (change)="onFilter('category', $event)">
+        <option value="">All categories</option>
+        @for (option of categories(); track option.id) {
+          <option [value]="option.id" [selected]="option.id === categoryFilter()">
+            {{ option.name }}
+          </option>
+        }
+      </select>
+    </label>
+
+    <label class="panel-filters__field">
+      <span class="field-label">Type</span>
+      <select class="select" (change)="onFilter('type', $event)">
+        <option value="">All types</option>
+        @for (option of types(); track option.id) {
+          <option [value]="option.id" [selected]="option.id === typeFilter()">
+            {{ option.name }}
+          </option>
+        }
+      </select>
+    </label>
+
+    <label class="panel-filters__field">
+      <span class="field-label">Brand</span>
+      <select class="select" (change)="onFilter('brand', $event)">
+        <option value="">All brands</option>
+        @for (option of brands(); track option.id) {
+          <option [value]="option.id" [selected]="option.id === brandFilter()">
+            {{ option.name }}
+          </option>
+        }
+      </select>
+    </label>
+
+    <label class="panel-filters__field">
+      <span class="field-label">Collection</span>
+      <select class="select" (change)="onFilter('collection', $event)">
+        <option value="">All collections</option>
+        @for (option of collections(); track option.id) {
+          <option [value]="option.id" [selected]="option.id === collectionFilter()">
+            {{ option.name }}
+          </option>
+        }
+      </select>
+    </label>
+
+    @if (activeFilterCount() > 0) {
+      <button type="button" class="btn btn--ghost btn--sm" (click)="clearFilters()">
+        Clear filters
+      </button>
+    }
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="save()" id="product-form">
+    @if (formError(); as message) {
+      <p class="form-error">{{ message }}</p>
+    }
+
+    <div class="form-section">
+      <div class="form-grid">
+        <app-form-field
+          label="SKU"
+          [required]="true"
+          [control]="form.controls.sku"
+          [submitted]="submitted()"
+          for="prod-sku"
+        >
+          <input id="prod-sku" class="input mono" formControlName="sku" autocomplete="off" />
+        </app-form-field>
+
+        <app-form-field
+          label="Design"
+          hint="Optional. Pre-fills type, collection and brand."
+          [control]="form.controls.designId"
+          [submitted]="submitted()"
+          for="prod-design"
+        >
+          <select
+            id="prod-design"
+            class="select"
+            formControlName="designId"
+            (change)="onDesignChange($event)"
+          >
+            <option value="">No design</option>
+            @for (design of designs(); track design.id) {
+              <option [value]="design.id">{{ design.designCode }} — {{ design.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Name"
+          [required]="true"
+          [control]="form.controls.name"
+          [submitted]="submitted()"
+          for="prod-name"
+        >
+          <input id="prod-name" class="input" formControlName="name" />
+        </app-form-field>
+
+        <app-form-field
+          label="Product type"
+          [required]="true"
+          [control]="form.controls.productTypeId"
+          [submitted]="submitted()"
+          for="prod-type"
+        >
+          <select id="prod-type" class="select" formControlName="productTypeId">
+            <option value="" disabled>Select a type</option>
+            @for (option of types(); track option.id) {
+              <option [value]="option.id">{{ option.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Category"
+          [control]="form.controls.categoryId"
+          [submitted]="submitted()"
+          for="prod-category"
+        >
+          <select id="prod-category" class="select" formControlName="categoryId">
+            <option value="">No category</option>
+            @for (option of categories(); track option.id) {
+              <option [value]="option.id">{{ option.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Brand"
+          [control]="form.controls.brandId"
+          [submitted]="submitted()"
+          for="prod-brand"
+        >
+          <select id="prod-brand" class="select" formControlName="brandId">
+            <option value="">No brand</option>
+            @for (option of brands(); track option.id) {
+              <option [value]="option.id">{{ option.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Collection"
+          [control]="form.controls.collectionId"
+          [submitted]="submitted()"
+          for="prod-collection"
+        >
+          <select id="prod-collection" class="select" formControlName="collectionId">
+            <option value="">No collection</option>
+            @for (option of collections(); track option.id) {
+              <option [value]="option.id">{{ option.name }}</option>
+            }
+          </select>
+        </app-form-field>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3 class="form-section__title">Metal and weight</h3>
+      <div class="form-grid">
+        <app-form-field
+          label="Default metal"
+          [control]="form.controls.defaultMetalId"
+          [submitted]="submitted()"
+          for="prod-metal"
+        >
+          <select
+            id="prod-metal"
+            class="select"
+            formControlName="defaultMetalId"
+            (change)="onMetalChange($event)"
+          >
+            <option value="">No metal</option>
+            @for (metal of metals(); track metal.id) {
+              <option [value]="metal.id">{{ metal.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Default purity"
+          [control]="form.controls.defaultPurityId"
+          [submitted]="submitted()"
+          for="prod-purity"
+        >
+          <select
+            id="prod-purity"
+            class="select"
+            formControlName="defaultPurityId"
+            [disabled]="formPurities().length === 0"
+          >
+            <option value="">No purity</option>
+            @for (purity of formPurities(); track purity.id) {
+              <option [value]="purity.id">{{ purity.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Nominal gross weight (g)"
+          [control]="form.controls.nominalGrossWeight"
+          [submitted]="submitted()"
+          for="prod-weight"
+        >
+          <input
+            id="prod-weight"
+            class="input numeric"
+            type="number"
+            step="0.001"
+            min="0"
+            formControlName="nominalGrossWeight"
+          />
+        </app-form-field>
+
+        <app-form-field
+          label="HSN code"
+          hint="Used on the tax invoice."
+          [control]="form.controls.hsnCode"
+          [submitted]="submitted()"
+          for="prod-hsn"
+        >
+          <input id="prod-hsn" class="input mono" formControlName="hsnCode" />
+        </app-form-field>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3 class="form-section__title">Pricing defaults</h3>
+      <div class="form-grid">
+        <app-form-field
+          label="Making charge type"
+          [control]="form.controls.defaultMakingChargeType"
+          [submitted]="submitted()"
+          for="prod-mc-type"
+        >
+          <select id="prod-mc-type" class="select" formControlName="defaultMakingChargeType">
+            <option value="">Not set</option>
+            @for (option of makingChargeTypes; track option.value) {
+              <option [value]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Making charge value"
+          [control]="form.controls.defaultMakingChargeValue"
+          [submitted]="submitted()"
+          for="prod-mc-value"
+        >
+          <input
+            id="prod-mc-value"
+            class="input numeric"
+            type="number"
+            step="0.01"
+            min="0"
+            formControlName="defaultMakingChargeValue"
+          />
+        </app-form-field>
+
+        <app-form-field
+          label="Wastage %"
+          [control]="form.controls.defaultWastagePercentage"
+          [submitted]="submitted()"
+          for="prod-wastage"
+        >
+          <input
+            id="prod-wastage"
+            class="input numeric"
+            type="number"
+            step="0.01"
+            min="0"
+            formControlName="defaultWastagePercentage"
+          />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Description"
+          [control]="form.controls.description"
+          [submitted]="submitted()"
+          for="prod-desc"
+        >
+          <textarea
+            id="prod-desc"
+            class="textarea"
+            rows="3"
+            formControlName="description"
+          ></textarea>
+        </app-form-field>
+      </div>
+    </div>
+  </form>
+</app-master-panel>

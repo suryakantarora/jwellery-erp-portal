@@ -1,0 +1,107 @@
+.calculator {
+  display: grid;
+  grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+
+  @media (max-width: 900px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.calculator__submit {
+  margin-top: var(--space-4);
+}
+.calculator__error {
+  margin-top: var(--space-3);
+}
+
+.calculator__hint {
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.calculator__placeholder {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  font-size: var(--text-sm);
+}
+
+.calculator__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.calculator__total {
+  font-size: 2rem;
+  font-weight: var(--weight-semibold);
+}
+
+.calculator__currency {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+}
+
+.breakdown {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+
+  th {
+    text-align: left;
+    font-weight: var(--weight-medium);
+    padding: var(--space-2) 0;
+  }
+
+  td {
+    padding: var(--space-2) 0;
+    vertical-align: baseline;
+  }
+
+  td:last-child {
+    text-align: right;
+    white-space: nowrap;
+  }
+}
+
+.breakdown__note {
+  padding-left: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.breakdown__subtotal th,
+.breakdown__subtotal td {
+  border-top: 1px solid var(--border-subtle);
+  font-weight: var(--weight-semibold);
+}
+
+.breakdown__credit {
+  color: var(--success-text);
+}
+
+.breakdown__final th,
+.breakdown__final td {
+  border-top: 2px solid var(--border-strong, var(--border-subtle));
+  padding-top: var(--space-3);
+  font-size: var(--text-md, 1rem);
+  font-weight: var(--weight-semibold);
+}
+
+.breakdown__footnote {
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.breakdown__approval {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--warning-soft);
+  color: var(--warning-text);
+  font-size: var(--text-sm);
+}

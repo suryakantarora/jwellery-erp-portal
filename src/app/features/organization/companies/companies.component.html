@@ -1,0 +1,220 @@
+<app-page-header
+  title="Companies"
+  eyebrow="Organization"
+  description="Legal entities, their tax registration and the branches beneath them."
+>
+  @if (canManage()) {
+    <button type="button" class="btn btn--primary" (click)="startCreate()">New company</button>
+  }
+</app-page-header>
+
+<section class="list-card">
+  <div class="list-toolbar">
+    <app-search-box placeholder="Search code, name, tax number…" (search)="onSearch($event)" />
+    <div class="list-toolbar__actions">
+      <button type="button" class="btn btn--ghost btn--sm" (click)="load()" [disabled]="loading()">
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <app-data-table
+    [columns]="columns"
+    [rows]="result().content"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="sort()"
+    [trackBy]="trackById"
+    [rowClickable]="true"
+    emptyTitle="No companies"
+    emptyMessage="Create the first legal entity to begin."
+    (sortChange)="onSort($event)"
+    (rowClick)="startEdit($event)"
+    (retry)="load()"
+  >
+    <ng-template appCell="name" [appCellOf]="result().content" let-row>
+      <span class="cell-stack">
+        <span class="cell-stack__primary">{{ row.name }}</span>
+        @if (row.legalName) {
+          <span class="cell-stack__secondary">{{ row.legalName }}</span>
+        }
+      </span>
+    </ng-template>
+
+    <ng-template appCell="status" [appCellOf]="result().content" let-row>
+      <app-status-badge [status]="row.status" />
+    </ng-template>
+
+    <ng-template appCell="actions" [appCellOf]="result().content" let-row>
+      <span class="list-actions">
+        <button
+          type="button"
+          class="btn btn--ghost btn--sm"
+          (click)="startEdit(row); $event.stopPropagation()"
+        >
+          {{ canManage() ? 'Edit' : 'View' }}
+        </button>
+      </span>
+    </ng-template>
+  </app-data-table>
+
+  <app-pagination
+    [page]="result().page"
+    [size]="result().size"
+    [totalElements]="result().totalElements"
+    [totalPages]="result().totalPages"
+    (pageChange)="page.set($event)"
+    (sizeChange)="onSizeChange($event)"
+  />
+</section>
+
+@if (editing(); as target) {
+  <app-drawer
+    eyebrow="Organization"
+    [title]="target === 'new' ? 'New company' : target.name"
+    [subtitle]="target === 'new' ? 'Register a legal entity.' : 'Company ' + target.code"
+    size="lg"
+    [closeOnBackdrop]="false"
+    (dismiss)="close()"
+  >
+    <form [formGroup]="form" (ngSubmit)="save()" id="company-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+
+      <div class="form-section">
+        <div class="form-grid">
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="form.controls.code"
+            [submitted]="submitted()"
+            for="company-code"
+          >
+            <input id="company-code" class="input mono" formControlName="code" autocomplete="off" />
+          </app-form-field>
+
+          <app-form-field
+            label="Base currency"
+            hint="Three-letter ISO code, e.g. INR."
+            [control]="form.controls.baseCurrency"
+            [submitted]="submitted()"
+            for="company-currency"
+          >
+            <input
+              id="company-currency"
+              class="input mono"
+              formControlName="baseCurrency"
+              maxlength="3"
+              autocomplete="off"
+            />
+          </app-form-field>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Name"
+            [required]="true"
+            [control]="form.controls.name"
+            [submitted]="submitted()"
+            for="company-name"
+          >
+            <input id="company-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Legal name"
+            [control]="form.controls.legalName"
+            [submitted]="submitted()"
+            for="company-legal"
+          >
+            <input id="company-legal" class="input" formControlName="legalName" />
+          </app-form-field>
+
+          <app-form-field
+            label="Tax number"
+            [control]="form.controls.taxNumber"
+            [submitted]="submitted()"
+            for="company-tax"
+          >
+            <input id="company-tax" class="input mono" formControlName="taxNumber" />
+          </app-form-field>
+
+          <app-form-field
+            label="Registration number"
+            [control]="form.controls.registrationNumber"
+            [submitted]="submitted()"
+            for="company-reg"
+          >
+            <input id="company-reg" class="input mono" formControlName="registrationNumber" />
+          </app-form-field>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3 class="form-section__title">Address and contact</h3>
+        <div class="form-grid">
+          <app-form-field
+            class="form-grid__full"
+            label="Address"
+            [control]="form.controls.addressLine"
+            [submitted]="submitted()"
+            for="company-address"
+          >
+            <input id="company-address" class="input" formControlName="addressLine" />
+          </app-form-field>
+
+          <app-form-field
+            label="City"
+            [control]="form.controls.city"
+            [submitted]="submitted()"
+            for="company-city"
+          >
+            <input id="company-city" class="input" formControlName="city" />
+          </app-form-field>
+
+          <app-form-field
+            label="Country"
+            [control]="form.controls.country"
+            [submitted]="submitted()"
+            for="company-country"
+          >
+            <input id="company-country" class="input" formControlName="country" />
+          </app-form-field>
+
+          <app-form-field
+            label="Phone"
+            [control]="form.controls.phone"
+            [submitted]="submitted()"
+            for="company-phone"
+          >
+            <input id="company-phone" class="input" formControlName="phone" />
+          </app-form-field>
+
+          <app-form-field
+            label="Email"
+            [control]="form.controls.email"
+            [submitted]="submitted()"
+            for="company-email"
+          >
+            <input id="company-email" class="input" type="email" formControlName="email" />
+          </app-form-field>
+        </div>
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">
+        {{ canManage() ? 'Cancel' : 'Close' }}
+      </button>
+      @if (canManage()) {
+        <button type="submit" form="company-form" class="btn btn--primary" [disabled]="saving()">
+          @if (saving()) {
+            <app-spinner [size]="14" />
+          }
+          {{ target === 'new' ? 'Create company' : 'Save changes' }}
+        </button>
+      }
+    </ng-container>
+  </app-drawer>
+}

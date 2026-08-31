@@ -1,0 +1,277 @@
+@use 'mixins' as *;
+
+// ---------------------------------------------------------------------------
+// Form controls and buttons.
+//
+// These are global element classes rather than components because they are
+// applied directly to native <button>/<input> elements throughout the app,
+// which keeps forms accessible and avoids a wrapper component per control.
+// ---------------------------------------------------------------------------
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+
+  @include focus-visible;
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .icon {
+    flex: none;
+  }
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  box-shadow: var(--shadow-xs);
+
+  &:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+  &:active:not(:disabled) {
+    background: var(--accent-active);
+  }
+}
+
+.btn--secondary {
+  background: var(--surface-raised);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+
+  &:hover:not(:disabled) {
+    background: var(--surface-hover);
+    border-color: var(--neutral-400);
+  }
+  &:active:not(:disabled) {
+    background: var(--surface-active);
+  }
+}
+
+.btn--ghost {
+  color: var(--text-secondary);
+
+  &:hover:not(:disabled) {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+  }
+  &:active:not(:disabled) {
+    background: var(--surface-active);
+  }
+}
+
+.btn--danger {
+  background: var(--danger);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    filter: brightness(0.92);
+  }
+}
+
+.btn--danger-ghost {
+  color: var(--danger);
+
+  &:hover:not(:disabled) {
+    background: var(--danger-soft);
+  }
+}
+
+.btn--sm {
+  height: 30px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+.btn--lg {
+  height: 44px;
+  padding: 0 var(--space-6);
+  font-size: var(--text-md);
+}
+.btn--block {
+  width: 100%;
+}
+
+.btn--icon {
+  width: 36px;
+  padding: 0;
+
+  &.btn--sm {
+    width: 30px;
+  }
+  &.btn--lg {
+    width: 44px;
+  }
+}
+
+// --- inputs ----------------------------------------------------------------
+
+.field-label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font: inherit;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+
+  &:hover:not(:disabled):not(:focus) {
+    border-color: var(--neutral-400);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px var(--accent-ring);
+  }
+
+  &:disabled,
+  &[readonly] {
+    background: var(--surface-sunken);
+    color: var(--text-muted);
+    cursor: not-allowed;
+  }
+
+  &.is-invalid {
+    border-color: var(--danger);
+
+    &:focus {
+      box-shadow: 0 0 0 3px var(--danger-soft);
+    }
+  }
+}
+
+.textarea {
+  min-height: 88px;
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+  line-height: var(--leading-normal);
+}
+
+.select {
+  appearance: none;
+  padding-right: var(--space-8);
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentcolor 50%),
+    linear-gradient(135deg, currentcolor 50%, transparent 50%);
+  background-position:
+    right 17px center,
+    right 12px center;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.field-hint {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.field-error {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--danger);
+}
+
+// --- checkbox / switch -----------------------------------------------------
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  user-select: none;
+
+  input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+}
+
+// --- surfaces --------------------------------------------------------------
+
+.card {
+  @include card;
+}
+
+// A card holding a table or its own toolbar manages its own edges.
+.card--flush {
+  padding: 0;
+}
+
+.card--roomy {
+  padding: var(--space-6);
+}
+
+.divider {
+  height: 1px;
+  border: 0;
+  margin: 0;
+  background: var(--border-subtle);
+}
+
+.eyebrow {
+  @include eyebrow;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+.secondary-text {
+  color: var(--text-secondary);
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+}
+.numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+.visually-hidden {
+  @include visually-hidden;
+}

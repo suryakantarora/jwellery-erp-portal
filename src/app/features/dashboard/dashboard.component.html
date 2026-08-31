@@ -1,0 +1,82 @@
+<app-page-header
+  [title]="greeting() + ', ' + firstName()"
+  eyebrow="Dashboard"
+  [description]="
+    branches.activeBranch()
+      ? 'Operations overview for ' + branches.activeBranch()!.name + '.'
+      : 'Operations overview across the group.'
+  "
+/>
+
+@if (usingMockData) {
+  <div class="notice" role="note">
+    <app-icon name="info" [size]="16" />
+    <span>
+      These figures are placeholders. The dashboard is wired to live reporting data in Phase 15.
+    </span>
+  </div>
+}
+
+@if (loading()) {
+  <app-loading-state label="Preparing your overview…" />
+} @else if (snapshot(); as data) {
+  <section class="metrics" aria-label="Key figures">
+    @for (metric of data.metrics; track metric.key) {
+      <app-metric-card [metric]="metric" />
+    }
+  </section>
+
+  <section class="panels">
+    <article class="card panel">
+      <header class="panel__head">
+        <div>
+          <h2 class="panel__title">Sales trend</h2>
+          <p class="panel__subtitle">Net sales by month, in lakhs</p>
+        </div>
+      </header>
+      <div class="panel__body">
+        <app-trend-chart [points]="data.salesTrend" unit=" L" />
+      </div>
+    </article>
+
+    <article class="card panel">
+      <header class="panel__head">
+        <div>
+          <h2 class="panel__title">Inventory mix</h2>
+          <p class="panel__subtitle">Share of stock value by category</p>
+        </div>
+      </header>
+      <div class="panel__body">
+        <app-share-bars [data]="data.inventoryByCategory" />
+      </div>
+    </article>
+  </section>
+
+  <section class="card panel">
+    <header class="panel__head">
+      <div>
+        <h2 class="panel__title">Recent activity</h2>
+        <p class="panel__subtitle">Movements and approvals across your branches</p>
+      </div>
+    </header>
+    <ul class="activity">
+      @for (entry of data.activity; track entry.id) {
+        <li class="activity__item">
+          <span class="activity__icon">
+            <app-icon [name]="entry.icon" [size]="16" />
+          </span>
+          <div class="activity__text">
+            <p class="activity__title">{{ entry.title }}</p>
+            <p class="activity__detail">{{ entry.detail }}</p>
+          </div>
+          <time class="activity__time">{{ entry.at }}</time>
+        </li>
+      }
+    </ul>
+  </section>
+} @else {
+  <app-empty-state
+    title="No dashboard data"
+    message="Reporting data is not available for this environment yet."
+  />
+}

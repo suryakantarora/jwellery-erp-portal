@@ -1,0 +1,457 @@
+<app-page-header
+  title="Warehouse & vault"
+  eyebrow="Warehouse"
+  description="How the vault is organised, and the counts that prove what is actually in it."
+/>
+
+<nav class="tabs" role="tablist" aria-label="Warehouse sections">
+  @for (entry of tabs; track entry.id) {
+    <button
+      type="button"
+      role="tab"
+      class="tabs__tab"
+      [class.tabs__tab--active]="tab() === entry.id"
+      [attr.aria-selected]="tab() === entry.id"
+      (click)="selectTab(entry.id)"
+    >
+      {{ entry.label }}
+    </button>
+  }
+</nav>
+
+<ng-template #refCell let-row>
+  <span class="cell-stack">
+    <span class="cell-stack__primary mono">{{ row.referenceNumber }}</span>
+    <span class="cell-stack__secondary">{{ row.countDate }}</span>
+  </span>
+</ng-template>
+
+<ng-template #locationCell let-row>
+  <span class="cell-stack">
+    <span>{{ locationName(row.locationId) }}</span>
+    @if (row.dualAuthorization) {
+      <span class="cell-stack__secondary">Dual authorization</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #varianceCell let-row>
+  <span class="variance">
+    <span class="numeric">{{ row.countedCount }} / {{ row.expectedCount }} found</span>
+    @if (row.missingCount > 0) {
+      <span class="chip chip--danger">{{ row.missingCount }} missing</span>
+    }
+    @if (row.unexpectedCount > 0) {
+      <span class="chip chip--warning">{{ row.unexpectedCount }} unexpected</span>
+    }
+    @if (!row.hasVariance && row.countedAt) {
+      <span class="chip">Balanced</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #statusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<ng-template #actionsCell let-row>
+  <span class="list-actions">
+    <button
+      type="button"
+      class="btn btn--ghost btn--sm"
+      (click)="view(row); $event.stopPropagation()"
+    >
+      Open
+    </button>
+    @if (row.status === 'PENDING_REVIEW' && canApprove()) {
+      <button
+        type="button"
+        class="btn btn--secondary btn--sm"
+        (click)="approve(row); $event.stopPropagation()"
+      >
+        Approve
+      </button>
+    }
+  </span>
+</ng-template>
+
+<ng-template #binTypeCell let-row>
+  <app-status-badge [tone]="'neutral'" [label]="row.binType" [dot]="false" />
+</ng-template>
+
+<ng-template #binActiveCell let-row>
+  <app-status-badge [status]="row.active ? 'ACTIVE' : 'INACTIVE'" />
+</ng-template>
+
+<ng-template #binActionsCell let-row>
+  <span class="list-actions">
+    @if (canManage() && row.active) {
+      <button
+        type="button"
+        class="btn btn--danger-ghost btn--sm"
+        (click)="deactivateBin(row); $event.stopPropagation()"
+      >
+        Deactivate
+      </button>
+    }
+  </span>
+</ng-template>
+
+@if (tab() === 'counts') {
+  <app-master-panel
+    title="Stock counts"
+    eyebrow="Warehouse"
+    [showHeader]="false"
+    [columns]="countColumns"
+    [page]="counts()"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="sort()"
+    [trackBy]="trackById"
+    [cellTemplates]="countTemplates()"
+    [searchable]="false"
+    [canManage]="canCount()"
+    createLabel="Start a count"
+    emptyTitle="No counts"
+    emptyMessage="Start a count to check a location against what the system believes is there."
+    [editing]="creating() ? 'new' : null"
+    drawerTitle="Start a stock count"
+    drawerSubtitle="The system records what it expects; you record what you find."
+    formId="count-form"
+    [saving]="saving()"
+    saveLabel="Start count"
+    (create)="startCreate()"
+    (rowClick)="view($event)"
+    (sortChange)="onSort($event)"
+    (pageChange)="onPage($event)"
+    (sizeChange)="onSizeChange($event)"
+    (retry)="load()"
+    (dismiss)="close()"
+  >
+    <div panelFilters class="panel-filters">
+      <label class="panel-filters__field">
+        <span class="field-label">Status</span>
+        <select class="select" (change)="onStatusFilter($event)">
+          <option value="">All statuses</option>
+          @for (status of statuses; track status.value) {
+            <option [value]="status.value" [selected]="status.value === statusFilter()">
+              {{ status.label }}
+            </option>
+          }
+        </select>
+      </label>
+    </div>
+
+    <form [formGroup]="countForm" (ngSubmit)="save()" id="count-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+      <div class="form-grid">
+        <app-form-field
+          class="form-grid__full"
+          label="Location"
+          [required]="true"
+          [control]="countForm.controls.locationId"
+          [submitted]="submitted()"
+          for="ct-location"
+        >
+          <select id="ct-location" class="select" formControlName="locationId">
+            <option value="" disabled>Select a location</option>
+            @for (location of locations(); track location.id) {
+              <option [value]="location.id">{{ location.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Notes"
+          [control]="countForm.controls.notes"
+          [submitted]="submitted()"
+          for="ct-notes"
+        >
+          <textarea id="ct-notes" class="textarea" rows="2" formControlName="notes"></textarea>
+        </app-form-field>
+      </div>
+    </form>
+  </app-master-panel>
+} @else {
+  <app-master-panel
+    title="Storage structure"
+    eyebrow="Warehouse"
+    [showHeader]="false"
+    [columns]="binColumns"
+    [page]="binPage()"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="sort()"
+    [trackBy]="trackById"
+    [cellTemplates]="binTemplates()"
+    [canManage]="canManage()"
+    [createDisabled]="!binLocationId()"
+    createLabel="New storage"
+    searchPlaceholder="Search storage…"
+    emptyTitle="No storage defined"
+    emptyMessage="Zones, shelves, trays and safes describe where a piece physically sits."
+    [editing]="creating() ? 'new' : null"
+    drawerTitle="New storage"
+    drawerSubtitle="Storage nests: a tray sits on a shelf, which sits in a zone."
+    formId="bin-form"
+    [saving]="saving()"
+    saveLabel="Create storage"
+    (create)="startCreate()"
+    (search)="onSearch($event)"
+    (sortChange)="onSort($event)"
+    (pageChange)="page.set($event)"
+    (sizeChange)="onSizeChange($event)"
+    (retry)="loadBins()"
+    (dismiss)="close()"
+  >
+    <span panelToolbar>
+      <label class="visually-hidden" for="bin-location">Location</label>
+      <select id="bin-location" class="select" (change)="onBinLocation($event)">
+        @for (location of locations(); track location.id) {
+          <option [value]="location.id" [selected]="location.id === binLocationId()">
+            {{ location.name }}
+          </option>
+        }
+      </select>
+    </span>
+
+    <form [formGroup]="binForm" (ngSubmit)="save()" id="bin-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+      <div class="form-grid">
+        <app-form-field
+          class="form-grid__full"
+          label="Location"
+          [required]="true"
+          [control]="binForm.controls.locationId"
+          [submitted]="submitted()"
+          for="bn-location"
+        >
+          <select id="bn-location" class="select" formControlName="locationId">
+            @for (location of locations(); track location.id) {
+              <option [value]="location.id">{{ location.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Code"
+          [required]="true"
+          [control]="binForm.controls.code"
+          [submitted]="submitted()"
+          for="bn-code"
+        >
+          <input id="bn-code" class="input mono" formControlName="code" autocomplete="off" />
+        </app-form-field>
+
+        <app-form-field
+          label="Name"
+          [required]="true"
+          [control]="binForm.controls.name"
+          [submitted]="submitted()"
+          for="bn-name"
+        >
+          <input id="bn-name" class="input" formControlName="name" />
+        </app-form-field>
+
+        <app-form-field
+          label="Kind"
+          [required]="true"
+          [control]="binForm.controls.binType"
+          [submitted]="submitted()"
+          for="bn-type"
+        >
+          <select id="bn-type" class="select" formControlName="binType">
+            @for (type of binTypes; track type.value) {
+              <option [value]="type.value">{{ type.label }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Capacity"
+          [control]="binForm.controls.capacity"
+          [submitted]="submitted()"
+          for="bn-capacity"
+        >
+          <input
+            id="bn-capacity"
+            class="input numeric"
+            type="number"
+            min="1"
+            formControlName="capacity"
+          />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Inside"
+          hint="Optional parent storage."
+          [control]="binForm.controls.parentId"
+          [submitted]="submitted()"
+          for="bn-parent"
+        >
+          <select id="bn-parent" class="select" formControlName="parentId">
+            <option value="">Directly in the location</option>
+            @for (bin of bins(); track bin.id) {
+              <option [value]="bin.id">{{ bin.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Description"
+          [control]="binForm.controls.description"
+          [submitted]="submitted()"
+          for="bn-description"
+        >
+          <input id="bn-description" class="input" formControlName="description" />
+        </app-form-field>
+      </div>
+    </form>
+  </app-master-panel>
+}
+
+@if (viewing(); as count) {
+  <app-drawer
+    eyebrow="Warehouse"
+    [title]="count.referenceNumber"
+    [subtitle]="locationName(count.locationId)"
+    size="lg"
+    (dismiss)="close()"
+  >
+    <dl class="detail-facts">
+      <div>
+        <dt>Status</dt>
+        <dd><app-status-badge [status]="count.status" /></dd>
+      </div>
+      <div>
+        <dt>Date</dt>
+        <dd>{{ count.countDate }}</dd>
+      </div>
+      <div>
+        <dt>Expected</dt>
+        <dd class="numeric">{{ count.expectedCount }}</dd>
+      </div>
+      <div>
+        <dt>Found</dt>
+        <dd class="numeric">{{ count.countedCount }}</dd>
+      </div>
+      <div>
+        <dt>Missing</dt>
+        <dd class="numeric variance-bad">{{ count.missingCount }}</dd>
+      </div>
+      <div>
+        <dt>Unexpected</dt>
+        <dd class="numeric variance-warn">{{ count.unexpectedCount }}</dd>
+      </div>
+      @if (count.countedAt) {
+        <div>
+          <dt>Counted</dt>
+          <dd>{{ count.countedAt | relativeTime }} · {{ count.countedBy }}</dd>
+        </div>
+      }
+      @if (count.approvedAt) {
+        <div>
+          <dt>Approved</dt>
+          <dd>{{ count.approvedAt | relativeTime }} · {{ count.approvedBy }}</dd>
+        </div>
+      }
+    </dl>
+
+    @if (count.lines && count.lines.length > 0) {
+      <div class="form-section">
+        <h3 class="form-section__title">Lines</h3>
+        <ul class="line-list">
+          @for (line of count.lines; track line.id) {
+            <li class="line">
+              <span class="mono">{{ line.itemCode }}</span>
+              @if (line.missing) {
+                <span class="chip chip--danger">Missing</span>
+              } @else if (line.unexpected) {
+                <span class="chip chip--warning">Unexpected</span>
+              } @else if (line.counted) {
+                <span class="chip">Found</span>
+              }
+            </li>
+          }
+        </ul>
+      </div>
+    }
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Close</button>
+      @if (count.status === 'IN_PROGRESS' && canCount()) {
+        <button type="button" class="btn btn--danger-ghost" (click)="cancelCount(count)">
+          Cancel count
+        </button>
+        <button type="button" class="btn btn--primary" (click)="startCounting()">
+          Record what is found
+        </button>
+      }
+      @if (count.status === 'PENDING_REVIEW' && canApprove()) {
+        <button type="button" class="btn btn--primary" (click)="approve(count)">Approve</button>
+      }
+    </ng-container>
+  </app-drawer>
+}
+
+@if (counting()) {
+  <app-drawer
+    eyebrow="Warehouse"
+    title="Record what is found"
+    [subtitle]="viewing()?.referenceNumber ?? ''"
+    size="lg"
+    [closeOnBackdrop]="false"
+    (dismiss)="counting.set(false)"
+  >
+    @if (formError(); as message) {
+      <p class="form-error">{{ message }}</p>
+    }
+
+    <p class="muted count-help">
+      Tick each piece you physically hold. Anything expected but not ticked is reported missing;
+      anything found that was not expected is reported as unexpected.
+    </p>
+
+    <div class="count-actions">
+      <span class="numeric">{{ foundItems().size }} of {{ expectedItems().length }} ticked</span>
+      <button type="button" class="btn btn--ghost btn--sm" (click)="markAllFound()">
+        Tick everything
+      </button>
+    </div>
+
+    @if (expectedItems().length === 0) {
+      <p class="muted">The system does not expect anything at this location.</p>
+    } @else {
+      <div class="option-list count-list">
+        @for (item of expectedItems(); track item.id) {
+          <label class="option-list__item">
+            <input type="checkbox" [checked]="isFound(item.id)" (change)="toggleFound(item.id)" />
+            <span class="option-list__label">
+              <span class="mono">{{ item.itemCode }}</span>
+              <span class="option-list__hint numeric"
+                >{{ item.grossWeight }} g · {{ item.status }}</span
+              >
+            </span>
+          </label>
+        }
+      </div>
+    }
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="counting.set(false)">Cancel</button>
+      <button type="button" class="btn btn--primary" [disabled]="saving()" (click)="submitCount()">
+        @if (saving()) {
+          <app-spinner [size]="14" />
+        }
+        Submit count
+      </button>
+    </ng-container>
+  </app-drawer>
+}

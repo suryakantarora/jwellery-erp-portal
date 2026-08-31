@@ -1,0 +1,80 @@
+@use '../../../../styles/mixins' as *;
+
+.toast-host {
+  position: fixed;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 380px;
+  max-width: calc(100vw - var(--space-8));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  animation: toast-in var(--duration-base) var(--ease-out);
+}
+
+.toast__icon { margin-top: 1px; flex: none; }
+.toast__content { flex: 1; min-width: 0; }
+
+.toast__title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.toast__detail {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.toast__close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover { background: var(--surface-hover); color: var(--text-primary); }
+  @include focus-visible;
+}
+
+.toast--success { border-left-color: var(--success); .toast__icon { color: var(--success); } }
+.toast--warning { border-left-color: var(--warning); .toast__icon { color: var(--warning); } }
+.toast--danger { border-left-color: var(--danger); .toast__icon { color: var(--danger); } }
+.toast--info,
+.toast--accent,
+.toast--neutral { border-left-color: var(--info); .toast__icon { color: var(--info); } }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+}
+
+@include below(sm) {
+  .toast-host {
+    right: var(--space-3);
+    left: var(--space-3);
+    bottom: var(--space-3);
+    width: auto;
+  }
+}

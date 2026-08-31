@@ -1,0 +1,379 @@
+@if (loading() && !passport()) {
+  <app-loading-state label="Loading the jewellery passport…" />
+} @else if (error(); as failure) {
+  <app-error-state [error]="failure" (retry)="reload()" />
+} @else if (item(); as piece) {
+  <app-page-header
+    [title]="product()?.name ?? piece.itemCode"
+    eyebrow="Digital jewellery passport"
+    [description]="'Item ' + piece.itemCode"
+  >
+    <a class="btn btn--ghost" routerLink="/inventory/items">Back to items</a>
+    @if (canTag()) {
+      <button type="button" class="btn btn--secondary" (click)="startTagging()">Tags</button>
+    }
+    @if (piece.status === 'DRAFT' && canTag()) {
+      <button
+        type="button"
+        class="btn btn--primary"
+        [disabled]="working()"
+        (click)="releaseToStock()"
+      >
+        Release into stock
+      </button>
+    }
+    @if (piece.status === 'RESERVED' && canReserve()) {
+      <button
+        type="button"
+        class="btn btn--secondary"
+        [disabled]="working()"
+        (click)="releaseReservation()"
+      >
+        Release hold
+      </button>
+    }
+    @if (canAdjust() && transitions().length > 0) {
+      <button type="button" class="btn btn--secondary" (click)="startStatusChange()">
+        Change status
+      </button>
+    }
+  </app-page-header>
+
+  <div class="detail-grid">
+    <div>
+      <section class="card passport-hero">
+        <div class="passport-hero__frame" aria-hidden="true">
+          <app-icon name="gem" [size]="32" />
+        </div>
+
+        <dl class="passport-hero__facts">
+          <div>
+            <dt>Item code</dt>
+            <dd class="mono">{{ piece.itemCode }}</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd><app-status-badge [status]="piece.status" /></dd>
+          </div>
+          <div>
+            <dt>Location</dt>
+            <dd>{{ location()?.name ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Quality checked</dt>
+            <dd>{{ piece.qualityChecked ? 'Yes' : 'Not yet' }}</dd>
+          </div>
+        </dl>
+
+        @if (piece.status === 'RESERVED' && piece.reservedUntil) {
+          <p class="passport-hero__hold">On hold until {{ piece.reservedUntil | relativeTime }}.</p>
+        }
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Identifiers</h2>
+        <dl class="detail-facts">
+          <div>
+            <dt>RFID</dt>
+            <dd class="mono">{{ piece.rfidTag ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>QR code</dt>
+            <dd class="mono">{{ piece.qrCode ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Barcode</dt>
+            <dd class="mono">{{ piece.barcode ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Hallmark</dt>
+            <dd class="mono">{{ piece.hallmarkNumber ?? '—' }}</dd>
+          </div>
+        </dl>
+      </section>
+    </div>
+
+    <div>
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Product</h2>
+        <dl class="detail-facts">
+          <div>
+            <dt>SKU</dt>
+            <dd class="mono">{{ product()?.sku ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Product</dt>
+            <dd>{{ product()?.name ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Design code</dt>
+            <dd class="mono">{{ design()?.designCode ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Size</dt>
+            <dd>{{ size()?.label ?? '—' }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Metal and weight</h2>
+        <dl class="detail-facts">
+          <div>
+            <dt>Metal</dt>
+            <dd>{{ metal()?.name ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Purity</dt>
+            <dd>{{ purity()?.name ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Gross weight</dt>
+            <dd class="numeric">{{ piece.grossWeight }} g</dd>
+          </div>
+          <div>
+            <dt>Net metal weight</dt>
+            <dd class="numeric">{{ piece.netMetalWeight ?? '—' }} g</dd>
+          </div>
+          <div>
+            <dt>Stone weight</dt>
+            <dd class="numeric">{{ piece.stoneWeight ?? 0 }} g</dd>
+          </div>
+          <div>
+            <dt>Total carat</dt>
+            <dd class="numeric">{{ piece.totalCarat ?? 0 }} ct</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Gemstones</h2>
+        @if (stones().length === 0) {
+          <p class="muted">No stones are set on this piece.</p>
+        } @else {
+          <div class="stone-list">
+            @for (stone of stones(); track stone.id) {
+              <article class="stone">
+                <header class="stone__header">
+                  <span class="stone__name">{{ stone.gemstoneName }}</span>
+                  <span class="stone__carat numeric">{{ stone.caratWeight }} ct</span>
+                </header>
+                <dl class="stone__facts">
+                  <div>
+                    <dt>Count</dt>
+                    <dd class="numeric">{{ stone.stoneCount }}</dd>
+                  </div>
+                  <div>
+                    <dt>Shape</dt>
+                    <dd>{{ stone.shape ?? '—' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Cut</dt>
+                    <dd>{{ stone.cut ?? '—' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Colour</dt>
+                    <dd>{{ stone.colour ?? '—' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Clarity</dt>
+                    <dd>{{ stone.clarity ?? '—' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Setting</dt>
+                    <dd>{{ stone.settingType ?? '—' }}</dd>
+                  </div>
+                </dl>
+                @if (stone.certificateNumber) {
+                  <p class="stone__certificate mono">Certificate {{ stone.certificateNumber }}</p>
+                }
+              </article>
+            }
+          </div>
+        }
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Cost and price</h2>
+        <dl class="detail-facts">
+          <div>
+            <dt>Purchase cost</dt>
+            <dd class="numeric">{{ piece.purchaseCost ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Making cost</dt>
+            <dd class="numeric">{{ piece.makingCost ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Stone cost</dt>
+            <dd class="numeric">{{ piece.stoneCost ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Total cost</dt>
+            <dd class="numeric">{{ piece.totalCost ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Current price</dt>
+            <dd class="numeric">{{ piece.currentPrice ?? 'Not priced' }}</dd>
+          </div>
+          <div>
+            <dt>Received</dt>
+            <dd>{{ piece.receivedDate ?? '—' }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Lifecycle</h2>
+        @if (history().length === 0) {
+          <p class="muted">Nothing has been recorded against this piece yet.</p>
+        } @else {
+          <ol class="timeline">
+            @for (event of history(); track event.id) {
+              <li class="timeline__event">
+                <span class="timeline__marker" aria-hidden="true"></span>
+                <div class="timeline__body">
+                  <p class="timeline__title">{{ eventLabel(event.eventType) }}</p>
+                  @if (event.fromStatus || event.toStatus) {
+                    <p class="timeline__detail">
+                      {{ event.fromStatus ? statusLabel(event.fromStatus) + ' → ' : '' }}
+                      {{ statusLabel(event.toStatus) }}
+                    </p>
+                  }
+                  @if (event.notes) {
+                    <p class="timeline__detail">{{ event.notes }}</p>
+                  }
+                  <p class="timeline__meta">
+                    {{ event.occurredAt | relativeTime }}
+                    @if (event.performedBy) {
+                      · {{ event.performedBy }}
+                    }
+                  </p>
+                </div>
+              </li>
+            }
+          </ol>
+        }
+      </section>
+    </div>
+  </div>
+}
+
+@if (tagging()) {
+  <app-drawer
+    eyebrow="Digital jewellery passport"
+    title="Identifiers"
+    subtitle="RFID, QR and barcode carried by the physical piece."
+    size="md"
+    [closeOnBackdrop]="false"
+    (dismiss)="closeDrawers()"
+  >
+    <form [formGroup]="tagForm" (ngSubmit)="saveTags()" id="tag-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+      <div class="form-grid">
+        <app-form-field
+          class="form-grid__full"
+          label="RFID tag"
+          [control]="tagForm.controls.rfidTag"
+          [submitted]="submitted()"
+          for="tag-rfid"
+        >
+          <input id="tag-rfid" class="input mono" formControlName="rfidTag" autocomplete="off" />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="QR code"
+          [control]="tagForm.controls.qrCode"
+          [submitted]="submitted()"
+          for="tag-qr"
+        >
+          <input id="tag-qr" class="input mono" formControlName="qrCode" autocomplete="off" />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Barcode"
+          [control]="tagForm.controls.barcode"
+          [submitted]="submitted()"
+          for="tag-barcode"
+        >
+          <input id="tag-barcode" class="input mono" formControlName="barcode" autocomplete="off" />
+        </app-form-field>
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="closeDrawers()">Cancel</button>
+      <button type="submit" form="tag-form" class="btn btn--primary" [disabled]="saving()">
+        @if (saving()) {
+          <app-spinner [size]="14" />
+        }
+        Save identifiers
+      </button>
+    </ng-container>
+  </app-drawer>
+}
+
+@if (changingStatus()) {
+  <app-drawer
+    eyebrow="Digital jewellery passport"
+    title="Change status"
+    subtitle="Only the transitions the platform permits from the current state are offered."
+    size="md"
+    [closeOnBackdrop]="false"
+    (dismiss)="closeDrawers()"
+  >
+    <form [formGroup]="statusForm" (ngSubmit)="saveStatus()" id="status-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+      <div class="form-grid">
+        <app-form-field
+          class="form-grid__full"
+          label="New status"
+          [required]="true"
+          [control]="statusForm.controls.targetStatus"
+          [submitted]="submitted()"
+          for="status-target"
+        >
+          <select id="status-target" class="select" formControlName="targetStatus">
+            <option value="" disabled>Select a status</option>
+            @for (status of transitions(); track status) {
+              <option [value]="status">{{ statusLabel(status) }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Reason"
+          [required]="true"
+          hint="Recorded in the audit trail and on the passport."
+          [control]="statusForm.controls.reason"
+          [submitted]="submitted()"
+          for="status-reason"
+        >
+          <textarea
+            id="status-reason"
+            class="textarea"
+            rows="3"
+            formControlName="reason"
+          ></textarea>
+        </app-form-field>
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="closeDrawers()">Cancel</button>
+      <button type="submit" form="status-form" class="btn btn--primary" [disabled]="saving()">
+        @if (saving()) {
+          <app-spinner [size]="14" />
+        }
+        Change status
+      </button>
+    </ng-container>
+  </app-drawer>
+}

@@ -1,0 +1,281 @@
+<app-page-header
+  title="Locations"
+  eyebrow="Organization"
+  description="Counters, vaults, store rooms and warehouses within a branch."
+>
+  @if (canManage()) {
+    <button type="button" class="btn btn--primary" [disabled]="!branchId()" (click)="startCreate()">
+      New location
+    </button>
+  }
+</app-page-header>
+
+@if (branches().length === 0 && !loading()) {
+  <app-empty-state
+    icon="branch"
+    title="No branches yet"
+    message="Locations sit inside a branch. Create a branch first."
+  />
+} @else {
+  <section class="list-card">
+    <div class="list-toolbar">
+      <label class="visually-hidden" for="location-branch">Branch</label>
+      <select
+        id="location-branch"
+        class="select"
+        [value]="branchId()"
+        (change)="onBranchChange($event)"
+      >
+        @for (branch of branches(); track branch.id) {
+          <option [value]="branch.id" [selected]="branch.id === branchId()">
+            {{ branch.name }}
+          </option>
+        }
+      </select>
+
+      <app-search-box placeholder="Search code or name…" (search)="onSearch($event)" />
+
+      <div class="list-toolbar__actions">
+        <button
+          type="button"
+          class="btn btn--ghost btn--sm"
+          (click)="load()"
+          [disabled]="loading()"
+        >
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <app-filter-panel [activeCount]="activeFilterCount()" (clear)="clearFilters()">
+      <label class="field-label" for="location-type-filter">Location type</label>
+      <select
+        id="location-type-filter"
+        class="select"
+        [value]="typeFilter()"
+        (change)="onTypeFilter($event)"
+      >
+        <option value="">All types</option>
+        @for (type of locationTypes; track type.value) {
+          <option [value]="type.value" [selected]="type.value === typeFilter()">
+            {{ type.label }}
+          </option>
+        }
+      </select>
+    </app-filter-panel>
+
+    <app-data-table
+      [columns]="columns"
+      [rows]="result().content"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="sort()"
+      [trackBy]="trackById"
+      [rowClickable]="true"
+      emptyTitle="No locations"
+      emptyMessage="Add a showroom, counter, vault or store room to this branch."
+      (sortChange)="onSort($event)"
+      (rowClick)="startEdit($event)"
+      (retry)="load()"
+    >
+      <ng-template appCell="name" [appCellOf]="result().content" let-row>
+        <span class="cell-stack">
+          <span class="cell-stack__primary">{{ row.name }}</span>
+          @if (row.description) {
+            <span class="cell-stack__secondary">{{ row.description }}</span>
+          }
+        </span>
+      </ng-template>
+
+      <ng-template appCell="type" [appCellOf]="result().content" let-row>
+        {{ typeLabel(row.type) }}
+      </ng-template>
+
+      <ng-template appCell="parentId" [appCellOf]="result().content" let-row>
+        {{ parentName(row.parentId) }}
+      </ng-template>
+
+      <ng-template appCell="controls" [appCellOf]="result().content" let-row>
+        <span class="chip-row">
+          @if (row.dualAuthorization) {
+            <span class="chip">Dual authorization</span>
+          }
+          @if (row.lowStockThreshold !== null && row.lowStockThreshold !== undefined) {
+            <span class="chip numeric">Low stock &lt; {{ row.lowStockThreshold }}</span>
+          }
+          @if (
+            !row.dualAuthorization &&
+            (row.lowStockThreshold === null || row.lowStockThreshold === undefined)
+          ) {
+            <span class="muted">—</span>
+          }
+        </span>
+      </ng-template>
+
+      <ng-template appCell="status" [appCellOf]="result().content" let-row>
+        <app-status-badge [status]="row.status" />
+      </ng-template>
+
+      <ng-template appCell="actions" [appCellOf]="result().content" let-row>
+        <span class="list-actions">
+          <button
+            type="button"
+            class="btn btn--ghost btn--sm"
+            (click)="startEdit(row); $event.stopPropagation()"
+          >
+            {{ canManage() ? 'Edit' : 'View' }}
+          </button>
+          @if (canManage() && row.status === 'ACTIVE') {
+            <button
+              type="button"
+              class="btn btn--danger-ghost btn--sm"
+              (click)="deactivate(row); $event.stopPropagation()"
+            >
+              Deactivate
+            </button>
+          }
+        </span>
+      </ng-template>
+    </app-data-table>
+
+    <app-pagination
+      [page]="result().page"
+      [size]="result().size"
+      [totalElements]="result().totalElements"
+      [totalPages]="result().totalPages"
+      (pageChange)="page.set($event)"
+      (sizeChange)="onSizeChange($event)"
+    />
+  </section>
+}
+
+@if (editing(); as target) {
+  <app-drawer
+    eyebrow="Organization"
+    [title]="target === 'new' ? 'New location' : target.name"
+    [subtitle]="target === 'new' ? 'Add a location to this branch.' : 'Location ' + target.code"
+    size="md"
+    [closeOnBackdrop]="false"
+    (dismiss)="close()"
+  >
+    <form [formGroup]="form" (ngSubmit)="save()" id="location-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+
+      <div class="form-section">
+        <div class="form-grid">
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="form.controls.code"
+            [submitted]="submitted()"
+            for="location-code"
+          >
+            <input
+              id="location-code"
+              class="input mono"
+              formControlName="code"
+              autocomplete="off"
+            />
+          </app-form-field>
+
+          <app-form-field
+            label="Type"
+            [required]="true"
+            [control]="form.controls.type"
+            [submitted]="submitted()"
+            for="location-type"
+          >
+            <select id="location-type" class="select" formControlName="type">
+              @for (type of locationTypes; track type.value) {
+                <option [value]="type.value">{{ type.label }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Name"
+            [required]="true"
+            [control]="form.controls.name"
+            [submitted]="submitted()"
+            for="location-name"
+          >
+            <input id="location-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Inside"
+            hint="Optional. A counter usually sits inside a showroom."
+            [control]="form.controls.parentId"
+            [submitted]="submitted()"
+            for="location-parent"
+          >
+            <select id="location-parent" class="select" formControlName="parentId">
+              <option value="">Directly under the branch</option>
+              @for (option of parentOptions(); track option.id) {
+                <option [value]="option.id">
+                  {{ option.name }} · {{ typeLabel(option.type) }}
+                </option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="Low-stock threshold"
+            hint="Alert when the piece count falls below this."
+            [control]="form.controls.lowStockThreshold"
+            [submitted]="submitted()"
+            for="location-threshold"
+          >
+            <input
+              id="location-threshold"
+              class="input numeric"
+              type="number"
+              min="0"
+              formControlName="lowStockThreshold"
+            />
+          </app-form-field>
+
+          <div>
+            <label class="checkbox">
+              <input type="checkbox" formControlName="dualAuthorization" />
+              <span>Require dual authorization</span>
+            </label>
+          </div>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Description"
+            [control]="form.controls.description"
+            [submitted]="submitted()"
+            for="location-description"
+          >
+            <textarea
+              id="location-description"
+              class="textarea"
+              rows="2"
+              formControlName="description"
+            ></textarea>
+          </app-form-field>
+        </div>
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">
+        {{ canManage() ? 'Cancel' : 'Close' }}
+      </button>
+      @if (canManage()) {
+        <button type="submit" form="location-form" class="btn btn--primary" [disabled]="saving()">
+          @if (saving()) {
+            <app-spinner [size]="14" />
+          }
+          {{ target === 'new' ? 'Create location' : 'Save changes' }}
+        </button>
+      }
+    </ng-container>
+  </app-drawer>
+}

@@ -1,0 +1,111 @@
+@use '../../../styles/mixins' as *;
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.shell__header {
+  flex: none;
+  position: relative;
+  z-index: var(--z-sticky);
+}
+
+// A hairline under the header rather than a blocking overlay: requests are
+// frequent in an ERP and a spinner over the whole page on every one is worse
+// than the wait itself.
+.shell__progress {
+  position: absolute;
+  top: var(--header-height);
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: var(--z-sticky);
+  overflow: hidden;
+  background: var(--accent-soft);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    transform-origin: left;
+    animation: indeterminate 1.4s var(--ease-in-out) infinite;
+  }
+}
+
+@keyframes indeterminate {
+  0% { transform: translateX(-100%) scaleX(0.4); }
+  60% { transform: translateX(60%) scaleX(0.6); }
+  100% { transform: translateX(160%) scaleX(0.3); }
+}
+
+.shell__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  transition: grid-template-columns var(--duration-base) var(--ease-out);
+}
+
+.shell--collapsed .shell__body {
+  grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr);
+}
+
+.shell__sidebar {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.shell__main {
+  min-width: 0;
+  overflow-y: auto;
+  background: var(--surface-canvas);
+  @include scrollbar;
+
+  &:focus { outline: none; }
+}
+
+.shell__content {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-8) var(--space-12);
+}
+
+.shell__scrim { display: none; }
+
+@include below(md) {
+  .shell__body,
+  .shell--collapsed .shell__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell__sidebar {
+    position: fixed;
+    top: var(--header-height);
+    bottom: 0;
+    left: 0;
+    z-index: var(--z-drawer);
+    width: var(--sidebar-width);
+    transform: translateX(-100%);
+    transition: transform var(--duration-base) var(--ease-out);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .shell__sidebar--open { transform: none; }
+
+  .shell__scrim {
+    display: block;
+    position: fixed;
+    top: var(--header-height);
+    inset-inline: 0;
+    bottom: 0;
+    z-index: calc(var(--z-drawer) - 1);
+    background: var(--surface-scrim);
+  }
+
+  .shell__content { padding: var(--space-5) var(--space-4) var(--space-10); }
+}

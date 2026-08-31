@@ -1,0 +1,341 @@
+<app-page-header
+  title="Categories & types"
+  eyebrow="Products"
+  description="The taxonomy behind the catalogue: categories, the types inside them and the sizes each type offers."
+/>
+
+<nav class="tabs" role="tablist" aria-label="Taxonomy sections">
+  @for (entry of tabs; track entry.id) {
+    <button
+      type="button"
+      role="tab"
+      class="tabs__tab"
+      [class.tabs__tab--active]="tab() === entry.id"
+      [attr.aria-selected]="tab() === entry.id"
+      (click)="selectTab(entry.id)"
+    >
+      {{ entry.label }}
+    </button>
+  }
+</nav>
+
+<!-- Cell templates are shared by all three tables and handed to the panel. -->
+<ng-template #statusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<ng-template #sizeStatusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<ng-template #parentCell let-row>
+  {{ categoryName(row.parentId) }}
+</ng-template>
+
+<ng-template #sizeableCell let-row>
+  @if (row.sizeable) {
+    <app-status-badge tone="info" label="Sizeable" [dot]="false" />
+  } @else {
+    <span class="muted">—</span>
+  }
+</ng-template>
+
+@switch (tab()) {
+  @case ('categories') {
+    <app-master-panel
+      title="Categories"
+      eyebrow="Products"
+      [showHeader]="false"
+      [columns]="categoryColumns"
+      [page]="categoryPage()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="sort()"
+      [trackBy]="trackById"
+      [cellTemplates]="masterTemplates()"
+      [canManage]="canManage()"
+      [editable]="editable()"
+      createLabel="New category"
+      searchPlaceholder="Search categories…"
+      emptyTitle="No categories"
+      emptyMessage="Create a category such as Rings or Necklaces."
+      [editing]="editing()"
+      [drawerTitle]="editing() === 'new' ? 'New category' : 'Edit category'"
+      drawerSubtitle="Categories group the product types beneath them."
+      formId="category-form"
+      [saving]="saving()"
+      [saveLabel]="editing() === 'new' ? 'Create category' : 'Save changes'"
+      (create)="startCreate()"
+      (rowClick)="startEdit($event)"
+      (search)="onSearch($event)"
+      (sortChange)="onSort($event)"
+      (pageChange)="page.set($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="load()"
+      (dismiss)="close()"
+    >
+      <form [formGroup]="categoryForm" (ngSubmit)="save()" id="category-form">
+        @if (formError(); as message) {
+          <p class="form-error">{{ message }}</p>
+        }
+        <div class="form-grid">
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="categoryForm.controls.code"
+            [submitted]="submitted()"
+            for="cat-code"
+          >
+            <input id="cat-code" class="input mono" formControlName="code" autocomplete="off" />
+          </app-form-field>
+
+          <app-form-field
+            label="Name"
+            [required]="true"
+            [control]="categoryForm.controls.name"
+            [submitted]="submitted()"
+            for="cat-name"
+          >
+            <input id="cat-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <app-form-field
+            label="Inside"
+            hint="Optional parent category."
+            [control]="categoryForm.controls.parentId"
+            [submitted]="submitted()"
+            for="cat-parent"
+          >
+            <select id="cat-parent" class="select" formControlName="parentId">
+              <option value="">Top level</option>
+              @for (option of categories(); track option.id) {
+                <option [value]="option.id">{{ option.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="Display order"
+            [control]="categoryForm.controls.displayOrder"
+            [submitted]="submitted()"
+            for="cat-order"
+          >
+            <input
+              id="cat-order"
+              class="input numeric"
+              type="number"
+              formControlName="displayOrder"
+            />
+          </app-form-field>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Description"
+            [control]="categoryForm.controls.description"
+            [submitted]="submitted()"
+            for="cat-desc"
+          >
+            <input id="cat-desc" class="input" formControlName="description" />
+          </app-form-field>
+        </div>
+      </form>
+    </app-master-panel>
+  }
+
+  @case ('types') {
+    <app-master-panel
+      title="Product types"
+      eyebrow="Products"
+      [showHeader]="false"
+      [columns]="typeColumns"
+      [page]="typePage()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="sort()"
+      [trackBy]="trackById"
+      [cellTemplates]="masterTemplates()"
+      [canManage]="canManage()"
+      [editable]="editable()"
+      createLabel="New product type"
+      searchPlaceholder="Search product types…"
+      emptyTitle="No product types"
+      emptyMessage="Create a type such as Ring, Bangle or Chain."
+      [editing]="editing()"
+      [drawerTitle]="editing() === 'new' ? 'New product type' : 'Edit product type'"
+      drawerSubtitle="A type belongs to a category and decides whether pieces carry a size."
+      formId="type-form"
+      [saving]="saving()"
+      [saveLabel]="editing() === 'new' ? 'Create product type' : 'Save changes'"
+      (create)="startCreate()"
+      (rowClick)="startEdit($event)"
+      (search)="onSearch($event)"
+      (sortChange)="onSort($event)"
+      (pageChange)="page.set($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="load()"
+      (dismiss)="close()"
+    >
+      <form [formGroup]="typeForm" (ngSubmit)="save()" id="type-form">
+        @if (formError(); as message) {
+          <p class="form-error">{{ message }}</p>
+        }
+        <div class="form-grid">
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="typeForm.controls.code"
+            [submitted]="submitted()"
+            for="type-code"
+          >
+            <input id="type-code" class="input mono" formControlName="code" autocomplete="off" />
+          </app-form-field>
+
+          <app-form-field
+            label="Name"
+            [required]="true"
+            [control]="typeForm.controls.name"
+            [submitted]="submitted()"
+            for="type-name"
+          >
+            <input id="type-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <app-form-field
+            label="Category"
+            [control]="typeForm.controls.categoryId"
+            [submitted]="submitted()"
+            for="type-category"
+          >
+            <select id="type-category" class="select" formControlName="categoryId">
+              <option value="">No category</option>
+              @for (option of categories(); track option.id) {
+                <option [value]="option.id">{{ option.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <div>
+            <label class="checkbox">
+              <input type="checkbox" formControlName="sizeable" />
+              <span>Pieces of this type carry a size</span>
+            </label>
+          </div>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Description"
+            [control]="typeForm.controls.description"
+            [submitted]="submitted()"
+            for="type-desc"
+          >
+            <input id="type-desc" class="input" formControlName="description" />
+          </app-form-field>
+        </div>
+      </form>
+    </app-master-panel>
+  }
+
+  @case ('sizes') {
+    <app-master-panel
+      title="Sizes"
+      eyebrow="Products"
+      [showHeader]="false"
+      [columns]="sizeColumns"
+      [page]="sizePage()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="sort()"
+      [trackBy]="trackById"
+      [cellTemplates]="sizeTemplates()"
+      [canManage]="canManage()"
+      [editable]="editable()"
+      [createDisabled]="!sizeTypeId()"
+      createLabel="New size"
+      searchPlaceholder="Search sizes…"
+      emptyTitle="No sizes"
+      [emptyMessage]="
+        sizeableTypes().length === 0
+          ? 'Mark a product type as sizeable first.'
+          : 'Add the sizes this product type offers.'
+      "
+      [editing]="editing()"
+      [drawerTitle]="editing() === 'new' ? 'New size' : 'Size'"
+      drawerSubtitle="Sizes are append-only: an existing size cannot be edited."
+      formId="size-form"
+      [saving]="saving()"
+      saveLabel="Create size"
+      (create)="startCreate()"
+      (rowClick)="startEdit($event)"
+      (search)="onSearch($event)"
+      (sortChange)="onSort($event)"
+      (pageChange)="page.set($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="loadSizes()"
+      (dismiss)="close()"
+    >
+      <span panelToolbar>
+        <label class="visually-hidden" for="size-type">Product type</label>
+        <select id="size-type" class="select" (change)="onSizeTypeChange($event)">
+          @if (sizeableTypes().length === 0) {
+            <option value="">No sizeable product types</option>
+          }
+          @for (type of sizeableTypes(); track type.id) {
+            <option [value]="type.id" [selected]="type.id === sizeTypeId()">{{ type.name }}</option>
+          }
+        </select>
+      </span>
+
+      <form [formGroup]="sizeForm" (ngSubmit)="save()" id="size-form">
+        @if (formError(); as message) {
+          <p class="form-error">{{ message }}</p>
+        }
+        <div class="form-grid">
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="sizeForm.controls.code"
+            [submitted]="submitted()"
+            for="size-code"
+          >
+            <input id="size-code" class="input mono" formControlName="code" autocomplete="off" />
+          </app-form-field>
+
+          <app-form-field
+            label="Label"
+            [required]="true"
+            hint="What the operator sees, e.g. “16 (US 6)”."
+            [control]="sizeForm.controls.label"
+            [submitted]="submitted()"
+            for="size-label"
+          >
+            <input id="size-label" class="input" formControlName="label" />
+          </app-form-field>
+
+          <app-form-field
+            label="Standard"
+            hint="e.g. IN, US, UK."
+            [control]="sizeForm.controls.standard"
+            [submitted]="submitted()"
+            for="size-standard"
+          >
+            <input id="size-standard" class="input" formControlName="standard" />
+          </app-form-field>
+
+          <app-form-field
+            label="Display order"
+            [control]="sizeForm.controls.displayOrder"
+            [submitted]="submitted()"
+            for="size-order"
+          >
+            <input
+              id="size-order"
+              class="input numeric"
+              type="number"
+              formControlName="displayOrder"
+            />
+          </app-form-field>
+        </div>
+      </form>
+    </app-master-panel>
+  }
+}

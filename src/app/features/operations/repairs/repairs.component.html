@@ -1,0 +1,587 @@
+<ng-template #refCell let-row>
+  <span class="cell-stack">
+    <span class="cell-stack__primary mono">{{ row.requestNumber }}</span>
+    <span class="cell-stack__secondary">{{ row.receivedDate }}</span>
+  </span>
+</ng-template>
+
+<ng-template #customerCell let-row>
+  {{ customerName(row.customerId) }}
+</ng-template>
+
+<ng-template #costCell let-row>
+  <span class="cell-stack cell-stack--end">
+    @if (row.finalCost) {
+      <span class="numeric">{{ row.finalCost | number: '1.2-2' }} final</span>
+    } @else if (row.estimatedCost) {
+      <span class="numeric">{{ row.estimatedCost | number: '1.2-2' }} est.</span>
+    } @else {
+      <span class="muted">Not estimated</span>
+    }
+    @if (row.estimatedDays) {
+      <span class="cell-stack__secondary">{{ row.estimatedDays }} day(s)</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #statusCell let-row>
+  <app-status-badge [status]="row.status" [label]="statusLabel(row.status)" />
+</ng-template>
+
+<app-master-panel
+  title="Repairs"
+  eyebrow="Repairs"
+  description="Job cards from the counter to the workshop and back, with the condition on arrival on record."
+  [columns]="columns"
+  [page]="result()"
+  [loading]="loading()"
+  [error]="error()"
+  [sort]="sort()"
+  [trackBy]="trackById"
+  [cellTemplates]="templates()"
+  [searchable]="false"
+  [canManage]="canProcess()"
+  createLabel="New job card"
+  emptyTitle="Nothing in the workshop"
+  emptyMessage="Take a customer's piece in to raise a job card."
+  [editing]="creating() ? 'new' : null"
+  drawerTitle="Receive a repair"
+  drawerSubtitle="Photograph the piece as it arrives — that record settles any later dispute."
+  drawerSize="lg"
+  formId="repair-form"
+  [saving]="saving()"
+  saveLabel="Raise job card"
+  (create)="startCreate()"
+  (rowClick)="view($event)"
+  (sortChange)="onSort($event)"
+  (pageChange)="onPage($event)"
+  (sizeChange)="onSizeChange($event)"
+  (retry)="load()"
+  (dismiss)="close()"
+>
+  <div panelFilters class="panel-filters">
+    <label class="panel-filters__field">
+      <span class="field-label">Status</span>
+      <select class="select" (change)="onStatusFilter($event)">
+        <option value="">All statuses</option>
+        @for (status of statuses; track status.value) {
+          <option [value]="status.value" [selected]="status.value === statusFilter()">
+            {{ status.label }}
+          </option>
+        }
+      </select>
+    </label>
+  </div>
+
+  <form [formGroup]="receiveForm" (ngSubmit)="save()" id="repair-form">
+    @if (formError(); as message) {
+      <p class="form-error">{{ message }}</p>
+    }
+    <div class="form-grid">
+      <app-form-field
+        label="Customer"
+        [required]="true"
+        [control]="receiveForm.controls.customerId"
+        [submitted]="submitted()"
+        for="rp-customer"
+      >
+        <select id="rp-customer" class="select" formControlName="customerId">
+          <option value="" disabled>Select a customer</option>
+          @for (customer of customerList(); track customer.id) {
+            <option [value]="customer.id">{{ customer.fullName }} · {{ customer.phone }}</option>
+          }
+        </select>
+      </app-form-field>
+
+      <app-form-field
+        label="Branch"
+        [required]="true"
+        [control]="receiveForm.controls.branchId"
+        [submitted]="submitted()"
+        for="rp-branch"
+      >
+        <select id="rp-branch" class="select" formControlName="branchId">
+          @for (branch of branches(); track branch.id) {
+            <option [value]="branch.id">{{ branch.name }}</option>
+          }
+        </select>
+      </app-form-field>
+
+      <app-form-field
+        class="form-grid__full"
+        label="The piece"
+        [required]="true"
+        [control]="receiveForm.controls.itemDescription"
+        [submitted]="submitted()"
+        for="rp-item"
+      >
+        <input id="rp-item" class="input" formControlName="itemDescription" />
+      </app-form-field>
+
+      <app-form-field
+        class="form-grid__full"
+        label="Reported problem"
+        [required]="true"
+        [control]="receiveForm.controls.reportedProblem"
+        [submitted]="submitted()"
+        for="rp-problem"
+      >
+        <textarea
+          id="rp-problem"
+          class="textarea"
+          rows="2"
+          formControlName="reportedProblem"
+        ></textarea>
+      </app-form-field>
+
+      <app-form-field
+        class="form-grid__full"
+        label="Condition on arrival"
+        [control]="receiveForm.controls.conditionOnArrival"
+        [submitted]="submitted()"
+        for="rp-condition"
+      >
+        <textarea
+          id="rp-condition"
+          class="textarea"
+          rows="2"
+          formControlName="conditionOnArrival"
+        ></textarea>
+      </app-form-field>
+
+      <app-form-field
+        label="Weight on arrival (g)"
+        [control]="receiveForm.controls.receivedWeight"
+        [submitted]="submitted()"
+        for="rp-weight"
+      >
+        <input
+          id="rp-weight"
+          class="input numeric"
+          type="number"
+          step="0.001"
+          min="0"
+          formControlName="receivedWeight"
+        />
+      </app-form-field>
+
+      <app-form-field
+        label="Promised by"
+        [control]="receiveForm.controls.promisedDate"
+        [submitted]="submitted()"
+        for="rp-promised"
+      >
+        <input id="rp-promised" class="input" type="date" formControlName="promisedDate" />
+      </app-form-field>
+
+      <div class="form-grid__full">
+        <span class="field-label">Condition photographs</span>
+        <input
+          id="rp-photo"
+          class="input"
+          type="file"
+          accept="image/*"
+          [disabled]="uploading()"
+          (change)="onPhoto($event)"
+        />
+        @if (uploading()) {
+          <p class="field-hint">Uploading…</p>
+        } @else if (photoKeys().length > 0) {
+          <p class="field-hint">{{ photoKeys().length }} photograph(s) attached.</p>
+        } @else {
+          <p class="field-hint">Attach one at a time. Strongly recommended before work begins.</p>
+        }
+      </div>
+
+      <app-form-field
+        class="form-grid__full"
+        label="Notes"
+        [control]="receiveForm.controls.notes"
+        [submitted]="submitted()"
+        for="rp-notes"
+      >
+        <input id="rp-notes" class="input" formControlName="notes" />
+      </app-form-field>
+    </div>
+  </form>
+</app-master-panel>
+
+@if (viewing(); as repair) {
+  <app-drawer
+    eyebrow="Repairs"
+    [title]="repair.requestNumber"
+    [subtitle]="customerName(repair.customerId)"
+    size="lg"
+    (dismiss)="close()"
+  >
+    <dl class="detail-facts">
+      <div>
+        <dt>Status</dt>
+        <dd><app-status-badge [status]="repair.status" [label]="statusLabel(repair.status)" /></dd>
+      </div>
+      <div>
+        <dt>Received</dt>
+        <dd>{{ repair.receivedDate }}</dd>
+      </div>
+      <div>
+        <dt>Promised</dt>
+        <dd>{{ repair.promisedDate ?? '—' }}</dd>
+      </div>
+      <div>
+        <dt>Karigar</dt>
+        <dd class="mono">{{ repair.assignedTo ?? 'Unassigned' }}</dd>
+      </div>
+      <div>
+        <dt>Weight in</dt>
+        <dd class="numeric">{{ repair.receivedWeight ?? '—' }} g</dd>
+      </div>
+      <div>
+        <dt>Weight out</dt>
+        <dd class="numeric">{{ repair.deliveredWeight ?? '—' }} g</dd>
+      </div>
+      <div>
+        <dt>Estimate</dt>
+        <dd class="numeric">{{ repair.estimatedCost | number: '1.2-2' }}</dd>
+      </div>
+      <div>
+        <dt>Final cost</dt>
+        <dd class="numeric">{{ repair.finalCost | number: '1.2-2' }}</dd>
+      </div>
+    </dl>
+
+    <div class="form-section">
+      <h3 class="form-section__title">The piece</h3>
+      <p class="repair-text">{{ repair.itemDescription }}</p>
+      <p class="repair-text muted">{{ repair.reportedProblem }}</p>
+      @if (repair.conditionOnArrival) {
+        <p class="repair-text muted">On arrival: {{ repair.conditionOnArrival }}</p>
+      }
+      @if (repair.declineReason) {
+        <p class="form-error">{{ repair.declineReason }}</p>
+      }
+    </div>
+
+    @if (photoList(repair).length > 0) {
+      <div class="form-section">
+        <h3 class="form-section__title">Condition photographs</h3>
+        <div class="chip-row">
+          @for (key of photoList(repair); track key; let i = $index) {
+            <button type="button" class="btn btn--ghost btn--sm" (click)="downloadPhoto(key, i)">
+              Photograph {{ i + 1 }}
+            </button>
+          }
+        </div>
+      </div>
+    }
+
+    <div class="form-section">
+      <h3 class="form-section__title">Progress</h3>
+      <app-timeline [entries]="timeline()" emptyMessage="Nothing recorded on this card yet." />
+    </div>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Close</button>
+
+      @if (can(repair, 'INSPECTION') && canProcess()) {
+        <button type="button" class="btn btn--primary" (click)="openStep('inspect')">
+          Inspect
+        </button>
+      }
+      @if (can(repair, 'ESTIMATION') && canEstimate()) {
+        <button type="button" class="btn btn--primary" (click)="openStep('estimate')">
+          Estimate
+        </button>
+      }
+      @if (can(repair, 'IN_PROGRESS') && repair.status === 'APPROVAL_PENDING' && canProcess()) {
+        <button type="button" class="btn btn--primary" (click)="openStep('decision')">
+          Customer decision
+        </button>
+      }
+      @if (repair.status === 'IN_PROGRESS' && canProcess()) {
+        <button type="button" class="btn btn--secondary" (click)="openStep('assign')">
+          Assign
+        </button>
+        <button type="button" class="btn btn--primary" (click)="openStep('complete')">
+          Work done
+        </button>
+      }
+      @if (can(repair, 'READY') && canProcess()) {
+        <button type="button" class="btn btn--primary" (click)="openStep('quality')">
+          Quality check
+        </button>
+      }
+      @if (can(repair, 'DELIVERED') && canProcess()) {
+        <button type="button" class="btn btn--primary" (click)="openStep('deliver')">
+          Deliver
+        </button>
+      }
+      @if (can(repair, 'CANCELLED') && canProcess()) {
+        <button type="button" class="btn btn--danger-ghost" (click)="cancel(repair)">Cancel</button>
+      }
+    </ng-container>
+  </app-drawer>
+}
+
+@if (step(); as which) {
+  <app-drawer
+    eyebrow="Repairs"
+    [title]="
+      {
+        inspect: 'Inspection',
+        estimate: 'Estimate',
+        decision: 'Customer decision',
+        assign: 'Assign to a karigar',
+        complete: 'Work complete',
+        quality: 'Quality check',
+        deliver: 'Deliver to customer',
+      }[which]
+    "
+    [subtitle]="viewing()?.requestNumber ?? ''"
+    size="md"
+    [closeOnBackdrop]="false"
+    (dismiss)="step.set(null)"
+  >
+    <form [formGroup]="stepForm" (ngSubmit)="saveStep()" id="repair-step-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+
+      <div class="form-grid">
+        @switch (which) {
+          @case ('inspect') {
+            <app-form-field
+              class="form-grid__full"
+              label="Findings"
+              [required]="true"
+              [control]="stepForm.controls.findings"
+              [submitted]="submitted()"
+              for="st-findings"
+            >
+              <textarea
+                id="st-findings"
+                class="textarea"
+                rows="3"
+                formControlName="findings"
+              ></textarea>
+            </app-form-field>
+            <app-form-field
+              class="form-grid__full"
+              label="Condition notes"
+              [control]="stepForm.controls.conditionNotes"
+              [submitted]="submitted()"
+              for="st-condition"
+            >
+              <textarea
+                id="st-condition"
+                class="textarea"
+                rows="2"
+                formControlName="conditionNotes"
+              ></textarea>
+            </app-form-field>
+          }
+
+          @case ('estimate') {
+            <app-form-field
+              label="Estimated cost"
+              [required]="true"
+              [control]="stepForm.controls.estimatedCost"
+              [submitted]="submitted()"
+              for="st-cost"
+            >
+              <input
+                id="st-cost"
+                class="input numeric"
+                type="number"
+                step="0.01"
+                min="0"
+                formControlName="estimatedCost"
+              />
+            </app-form-field>
+            <app-form-field
+              label="Estimated days"
+              [control]="stepForm.controls.estimatedDays"
+              [submitted]="submitted()"
+              for="st-days"
+            >
+              <input
+                id="st-days"
+                class="input numeric"
+                type="number"
+                min="1"
+                formControlName="estimatedDays"
+              />
+            </app-form-field>
+            <app-form-field
+              class="form-grid__full"
+              label="Notes for the customer"
+              [control]="stepForm.controls.estimateNotes"
+              [submitted]="submitted()"
+              for="st-estimate-notes"
+            >
+              <textarea
+                id="st-estimate-notes"
+                class="textarea"
+                rows="2"
+                formControlName="estimateNotes"
+              ></textarea>
+            </app-form-field>
+          }
+
+          @case ('decision') {
+            <div class="form-grid__full">
+              <label class="checkbox">
+                <input type="checkbox" formControlName="approved" />
+                <span>The customer approved the estimate</span>
+              </label>
+            </div>
+            @if (!stepForm.controls.approved.value) {
+              <app-form-field
+                class="form-grid__full"
+                label="Why declined"
+                [control]="stepForm.controls.declineReason"
+                [submitted]="submitted()"
+                for="st-decline"
+              >
+                <textarea
+                  id="st-decline"
+                  class="textarea"
+                  rows="2"
+                  formControlName="declineReason"
+                ></textarea>
+              </app-form-field>
+            }
+          }
+
+          @case ('assign') {
+            <app-form-field
+              class="form-grid__full"
+              label="Karigar"
+              [required]="true"
+              hint="Who is doing the work."
+              [control]="stepForm.controls.assignedTo"
+              [submitted]="submitted()"
+              for="st-assigned"
+            >
+              <input id="st-assigned" class="input" formControlName="assignedTo" />
+            </app-form-field>
+            <app-form-field
+              class="form-grid__full"
+              label="Notes"
+              [control]="stepForm.controls.notes"
+              [submitted]="submitted()"
+              for="st-assign-notes"
+            >
+              <input id="st-assign-notes" class="input" formControlName="notes" />
+            </app-form-field>
+          }
+
+          @case ('complete') {
+            <app-form-field
+              class="form-grid__full"
+              label="Final cost"
+              hint="Leave blank to keep the estimate."
+              [control]="stepForm.controls.finalCost"
+              [submitted]="submitted()"
+              for="st-final"
+            >
+              <input
+                id="st-final"
+                class="input numeric"
+                type="number"
+                step="0.01"
+                min="0"
+                formControlName="finalCost"
+              />
+            </app-form-field>
+            <app-form-field
+              class="form-grid__full"
+              label="What was done"
+              [control]="stepForm.controls.notes"
+              [submitted]="submitted()"
+              for="st-work-notes"
+            >
+              <textarea
+                id="st-work-notes"
+                class="textarea"
+                rows="3"
+                formControlName="notes"
+              ></textarea>
+            </app-form-field>
+          }
+
+          @case ('quality') {
+            <div class="form-grid__full">
+              <label class="checkbox">
+                <input type="checkbox" formControlName="passed" />
+                <span>The work passes quality check</span>
+              </label>
+            </div>
+            <app-form-field
+              class="form-grid__full"
+              label="Notes"
+              [control]="stepForm.controls.notes"
+              [submitted]="submitted()"
+              for="st-quality-notes"
+            >
+              <textarea
+                id="st-quality-notes"
+                class="textarea"
+                rows="2"
+                formControlName="notes"
+              ></textarea>
+            </app-form-field>
+          }
+
+          @case ('deliver') {
+            <app-form-field
+              class="form-grid__full"
+              label="Handed to"
+              [required]="true"
+              [control]="stepForm.controls.deliveredTo"
+              [submitted]="submitted()"
+              for="st-delivered-to"
+            >
+              <input id="st-delivered-to" class="input" formControlName="deliveredTo" />
+            </app-form-field>
+            <app-form-field
+              class="form-grid__full"
+              label="Weight out (g)"
+              hint="Compared with the weight on arrival."
+              [control]="stepForm.controls.deliveredWeight"
+              [submitted]="submitted()"
+              for="st-delivered-weight"
+            >
+              <input
+                id="st-delivered-weight"
+                class="input numeric"
+                type="number"
+                step="0.001"
+                min="0"
+                formControlName="deliveredWeight"
+              />
+            </app-form-field>
+            <app-form-field
+              class="form-grid__full"
+              label="Notes"
+              [control]="stepForm.controls.notes"
+              [submitted]="submitted()"
+              for="st-deliver-notes"
+            >
+              <input id="st-deliver-notes" class="input" formControlName="notes" />
+            </app-form-field>
+          }
+        }
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="step.set(null)">Cancel</button>
+      <button type="submit" form="repair-step-form" class="btn btn--primary" [disabled]="saving()">
+        @if (saving()) {
+          <app-spinner [size]="14" />
+        }
+        Save
+      </button>
+    </ng-container>
+  </app-drawer>
+}

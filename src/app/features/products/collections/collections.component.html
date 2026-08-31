@@ -1,0 +1,94 @@
+<app-page-header
+  title="Collections & brands"
+  eyebrow="Products"
+  description="Seasonal collections and the brands a piece can belong to."
+/>
+
+<nav class="tabs" role="tablist" aria-label="Sections">
+  @for (entry of tabs; track entry.id) {
+    <button
+      type="button"
+      role="tab"
+      class="tabs__tab"
+      [class.tabs__tab--active]="tab() === entry.id"
+      [attr.aria-selected]="tab() === entry.id"
+      (click)="selectTab(entry.id)"
+    >
+      {{ entry.label }}
+    </button>
+  }
+</nav>
+
+<ng-template #statusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<app-master-panel
+  [title]="tab() === 'brands' ? 'Brands' : 'Collections'"
+  eyebrow="Products"
+  [showHeader]="false"
+  [columns]="columns()"
+  [page]="result()"
+  [loading]="loading()"
+  [error]="error()"
+  [sort]="sort()"
+  [trackBy]="trackById"
+  [cellTemplates]="templates()"
+  [canManage]="canManage()"
+  [editable]="editable()"
+  [createLabel]="'New ' + label()"
+  [searchPlaceholder]="'Search ' + label() + 's…'"
+  [emptyTitle]="'No ' + label() + 's'"
+  [emptyMessage]="'Create a ' + label() + ' to group pieces by it.'"
+  [editing]="editing()"
+  [drawerTitle]="editing() === 'new' ? 'New ' + label() : editingName()"
+  drawerSubtitle="Records here are create-only; the backend has no edit route for them."
+  formId="simple-master-form"
+  [saving]="saving()"
+  [saveLabel]="'Create ' + label()"
+  (create)="startCreate()"
+  (rowClick)="startEdit($event)"
+  (search)="onSearch($event)"
+  (sortChange)="onSort($event)"
+  (pageChange)="page.set($event)"
+  (sizeChange)="onSizeChange($event)"
+  (retry)="load()"
+  (dismiss)="close()"
+>
+  <form [formGroup]="form" (ngSubmit)="save()" id="simple-master-form">
+    @if (formError(); as message) {
+      <p class="form-error">{{ message }}</p>
+    }
+    <div class="form-grid">
+      <app-form-field
+        label="Code"
+        [required]="true"
+        [control]="form.controls.code"
+        [submitted]="submitted()"
+        for="simple-code"
+      >
+        <input id="simple-code" class="input mono" formControlName="code" autocomplete="off" />
+      </app-form-field>
+
+      <app-form-field
+        label="Name"
+        [required]="true"
+        [control]="form.controls.name"
+        [submitted]="submitted()"
+        for="simple-name"
+      >
+        <input id="simple-name" class="input" formControlName="name" />
+      </app-form-field>
+
+      <app-form-field
+        class="form-grid__full"
+        label="Description"
+        [control]="form.controls.description"
+        [submitted]="submitted()"
+        for="simple-desc"
+      >
+        <input id="simple-desc" class="input" formControlName="description" />
+      </app-form-field>
+    </div>
+  </form>
+</app-master-panel>

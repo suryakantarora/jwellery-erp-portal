@@ -1,0 +1,239 @@
+<ng-template #nameCell let-row>
+  <span class="cell-stack">
+    <span class="cell-stack__primary">{{ row.name }}</span>
+    @if (row.legalName) {
+      <span class="cell-stack__secondary">{{ row.legalName }}</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #termsCell let-row>
+  @if (row.paymentTermsDays !== null && row.paymentTermsDays !== undefined) {
+    <span class="numeric">Net {{ row.paymentTermsDays }} days</span>
+  } @else {
+    <span class="muted">—</span>
+  }
+</ng-template>
+
+<ng-template #statusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<app-master-panel
+  title="Suppliers"
+  eyebrow="Procurement"
+  description="Who the business buys from, on what terms, and how much credit they carry."
+  [columns]="columns"
+  [page]="result()"
+  [loading]="loading()"
+  [error]="error()"
+  [sort]="sort()"
+  [trackBy]="trackById"
+  [cellTemplates]="templates()"
+  [canManage]="canManage()"
+  createLabel="New supplier"
+  searchPlaceholder="Search code, name or city…"
+  emptyTitle="No suppliers"
+  emptyMessage="Add the first supplier to start raising orders."
+  [editing]="creating() ? 'new' : null"
+  drawerTitle="New supplier"
+  drawerSubtitle="Contacts and bank details are added on the supplier's own page."
+  drawerSize="lg"
+  formId="supplier-form"
+  [saving]="saving()"
+  saveLabel="Create supplier"
+  (create)="startCreate()"
+  (rowClick)="open($event)"
+  (search)="onSearch($event)"
+  (sortChange)="onSort($event)"
+  (pageChange)="onPage($event)"
+  (sizeChange)="onSizeChange($event)"
+  (retry)="load()"
+  (dismiss)="close()"
+>
+  <div panelFilters class="panel-filters">
+    <label class="panel-filters__field">
+      <span class="field-label">Status</span>
+      <select class="select" (change)="onStatusFilter($event)">
+        <option value="">All statuses</option>
+        @for (status of statuses; track status.value) {
+          <option [value]="status.value" [selected]="status.value === statusFilter()">
+            {{ status.label }}
+          </option>
+        }
+      </select>
+    </label>
+
+    @if (statusFilter()) {
+      <button type="button" class="btn btn--ghost btn--sm" (click)="clearFilters()">
+        Clear filters
+      </button>
+    }
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="save()" id="supplier-form">
+    @if (formError(); as message) {
+      <p class="form-error">{{ message }}</p>
+    }
+
+    <div class="form-section">
+      <div class="form-grid">
+        <app-form-field
+          label="Code"
+          [required]="true"
+          [control]="form.controls.code"
+          [submitted]="submitted()"
+          for="sup-code"
+        >
+          <input id="sup-code" class="input mono" formControlName="code" autocomplete="off" />
+        </app-form-field>
+
+        <app-form-field
+          label="Type"
+          hint="e.g. Manufacturer, Wholesaler, Karigar."
+          [control]="form.controls.supplierType"
+          [submitted]="submitted()"
+          for="sup-type"
+        >
+          <input id="sup-type" class="input" formControlName="supplierType" />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Name"
+          [required]="true"
+          [control]="form.controls.name"
+          [submitted]="submitted()"
+          for="sup-name"
+        >
+          <input id="sup-name" class="input" formControlName="name" />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Legal name"
+          [control]="form.controls.legalName"
+          [submitted]="submitted()"
+          for="sup-legal"
+        >
+          <input id="sup-legal" class="input" formControlName="legalName" />
+        </app-form-field>
+
+        <app-form-field
+          label="Tax number"
+          [control]="form.controls.taxNumber"
+          [submitted]="submitted()"
+          for="sup-tax"
+        >
+          <input id="sup-tax" class="input mono" formControlName="taxNumber" />
+        </app-form-field>
+
+        <app-form-field
+          label="Currency"
+          [control]="form.controls.currency"
+          [submitted]="submitted()"
+          for="sup-currency"
+        >
+          <input id="sup-currency" class="input mono" maxlength="3" formControlName="currency" />
+        </app-form-field>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3 class="form-section__title">Address and contact</h3>
+      <div class="form-grid">
+        <app-form-field
+          class="form-grid__full"
+          label="Address"
+          [control]="form.controls.addressLine"
+          [submitted]="submitted()"
+          for="sup-address"
+        >
+          <input id="sup-address" class="input" formControlName="addressLine" />
+        </app-form-field>
+
+        <app-form-field
+          label="City"
+          [control]="form.controls.city"
+          [submitted]="submitted()"
+          for="sup-city"
+        >
+          <input id="sup-city" class="input" formControlName="city" />
+        </app-form-field>
+
+        <app-form-field
+          label="Country"
+          [control]="form.controls.country"
+          [submitted]="submitted()"
+          for="sup-country"
+        >
+          <input id="sup-country" class="input" formControlName="country" />
+        </app-form-field>
+
+        <app-form-field
+          label="Phone"
+          [control]="form.controls.phone"
+          [submitted]="submitted()"
+          for="sup-phone"
+        >
+          <input id="sup-phone" class="input" formControlName="phone" />
+        </app-form-field>
+
+        <app-form-field
+          label="Email"
+          [control]="form.controls.email"
+          [submitted]="submitted()"
+          for="sup-email"
+        >
+          <input id="sup-email" class="input" type="email" formControlName="email" />
+        </app-form-field>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3 class="form-section__title">Trading terms</h3>
+      <div class="form-grid">
+        <app-form-field
+          label="Payment terms (days)"
+          [control]="form.controls.paymentTermsDays"
+          [submitted]="submitted()"
+          for="sup-terms"
+        >
+          <input
+            id="sup-terms"
+            class="input numeric"
+            type="number"
+            min="0"
+            formControlName="paymentTermsDays"
+          />
+        </app-form-field>
+
+        <app-form-field
+          label="Credit limit"
+          [control]="form.controls.creditLimit"
+          [submitted]="submitted()"
+          for="sup-credit"
+        >
+          <input
+            id="sup-credit"
+            class="input numeric"
+            type="number"
+            step="0.01"
+            min="0"
+            formControlName="creditLimit"
+          />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Notes"
+          [control]="form.controls.notes"
+          [submitted]="submitted()"
+          for="sup-notes"
+        >
+          <textarea id="sup-notes" class="textarea" rows="2" formControlName="notes"></textarea>
+        </app-form-field>
+      </div>
+    </div>
+  </form>
+</app-master-panel>

@@ -1,0 +1,512 @@
+<ng-template #refCell let-row>
+  <span class="cell-stack">
+    <span class="cell-stack__primary mono">{{ row.referenceNumber }}</span>
+    <span class="cell-stack__secondary">{{ row.receivedDate }}</span>
+  </span>
+</ng-template>
+
+<ng-template #customerCell let-row>
+  {{ customerName(row.customerId) }}
+</ng-template>
+
+<ng-template #weightCell let-row>
+  @if (row.netWeight) {
+    <span class="cell-stack cell-stack--end">
+      <span class="numeric">{{ row.netWeight | number: '1.0-3' }} g net</span>
+      @if (row.pureWeight) {
+        <span class="cell-stack__secondary numeric"
+          >{{ row.pureWeight | number: '1.0-3' }} g pure</span
+        >
+      }
+    </span>
+  } @else {
+    <span class="muted">Not weighed</span>
+  }
+</ng-template>
+
+<ng-template #valueCell let-row>
+  @if (row.netValuation) {
+    <span class="cell-stack cell-stack--end">
+      <span class="numeric">{{ row.netValuation | number: '1.2-2' }}</span>
+      @if (row.deductionPercentage) {
+        <span class="cell-stack__secondary">less {{ row.deductionPercentage }}%</span>
+      }
+    </span>
+  } @else {
+    <span class="muted">Not valued</span>
+  }
+</ng-template>
+
+<ng-template #statusCell let-row>
+  <app-status-badge [status]="row.status" [label]="statusLabel(row.status)" />
+</ng-template>
+
+<app-master-panel
+  title="Exchange & buyback"
+  eyebrow="Exchange"
+  description="Old gold taken in, weighed, tested and valued — with the working visible at every step."
+  [columns]="columns"
+  [page]="result()"
+  [loading]="loading()"
+  [error]="error()"
+  [sort]="sort()"
+  [trackBy]="trackById"
+  [cellTemplates]="templates()"
+  [searchable]="false"
+  [canManage]="canProcess()"
+  createLabel="Receive old gold"
+  emptyTitle="Nothing taken in"
+  emptyMessage="Receive a customer's old gold to start a valuation."
+  [editing]="creating() ? 'new' : null"
+  drawerTitle="Receive old gold"
+  drawerSubtitle="Record what came in; weighing, testing and valuation follow as separate steps."
+  drawerSize="md"
+  formId="exchange-form"
+  [saving]="saving()"
+  saveLabel="Receive"
+  (create)="startCreate()"
+  (rowClick)="view($event)"
+  (sortChange)="onSort($event)"
+  (pageChange)="onPage($event)"
+  (sizeChange)="onSizeChange($event)"
+  (retry)="load()"
+  (dismiss)="close()"
+>
+  <div panelFilters class="panel-filters">
+    <label class="panel-filters__field">
+      <span class="field-label">Status</span>
+      <select class="select" (change)="onFilter('status', $event)">
+        <option value="">All statuses</option>
+        @for (status of statuses; track status.value) {
+          <option [value]="status.value" [selected]="status.value === statusFilter()">
+            {{ status.label }}
+          </option>
+        }
+      </select>
+    </label>
+
+    <label class="panel-filters__field">
+      <span class="field-label">Kind</span>
+      <select class="select" (change)="onFilter('type', $event)">
+        <option value="">Exchange and buyback</option>
+        @for (type of exchangeTypes; track type.value) {
+          <option [value]="type.value" [selected]="type.value === typeFilter()">
+            {{ type.label }}
+          </option>
+        }
+      </select>
+    </label>
+  </div>
+
+  <form [formGroup]="receiveForm" (ngSubmit)="save()" id="exchange-form">
+    @if (formError(); as message) {
+      <p class="form-error">{{ message }}</p>
+    }
+    <div class="form-grid">
+      <app-form-field
+        label="Kind"
+        [required]="true"
+        [control]="receiveForm.controls.exchangeType"
+        [submitted]="submitted()"
+        for="ex-type"
+      >
+        <select id="ex-type" class="select" formControlName="exchangeType">
+          @for (type of exchangeTypes; track type.value) {
+            <option [value]="type.value">{{ type.label }}</option>
+          }
+        </select>
+      </app-form-field>
+
+      <app-form-field
+        label="Pieces"
+        [required]="true"
+        [control]="receiveForm.controls.itemCount"
+        [submitted]="submitted()"
+        for="ex-count"
+      >
+        <input
+          id="ex-count"
+          class="input numeric"
+          type="number"
+          min="1"
+          formControlName="itemCount"
+        />
+      </app-form-field>
+
+      <app-form-field
+        class="form-grid__full"
+        label="Customer"
+        [required]="true"
+        [control]="receiveForm.controls.customerId"
+        [submitted]="submitted()"
+        for="ex-customer"
+      >
+        <select id="ex-customer" class="select" formControlName="customerId">
+          <option value="" disabled>Select a customer</option>
+          @for (customer of customerList(); track customer.id) {
+            <option [value]="customer.id">{{ customer.fullName }} · {{ customer.phone }}</option>
+          }
+        </select>
+      </app-form-field>
+
+      <app-form-field
+        label="Branch"
+        [required]="true"
+        [control]="receiveForm.controls.branchId"
+        [submitted]="submitted()"
+        for="ex-branch"
+      >
+        <select id="ex-branch" class="select" formControlName="branchId">
+          @for (branch of branches(); track branch.id) {
+            <option [value]="branch.id">{{ branch.name }}</option>
+          }
+        </select>
+      </app-form-field>
+
+      <app-form-field
+        label="Metal"
+        [required]="true"
+        [control]="receiveForm.controls.metalId"
+        [submitted]="submitted()"
+        for="ex-metal"
+      >
+        <select
+          id="ex-metal"
+          class="select"
+          formControlName="metalId"
+          (change)="onMetalChange($event)"
+        >
+          <option value="" disabled>Select a metal</option>
+          @for (metal of metals(); track metal.id) {
+            <option [value]="metal.id">{{ metal.name }}</option>
+          }
+        </select>
+      </app-form-field>
+
+      <app-form-field
+        class="form-grid__full"
+        label="Declared purity"
+        hint="What the customer says it is; the test decides."
+        [control]="receiveForm.controls.declaredPurityId"
+        [submitted]="submitted()"
+        for="ex-purity"
+      >
+        <select
+          id="ex-purity"
+          class="select"
+          formControlName="declaredPurityId"
+          [disabled]="purities().length === 0"
+        >
+          <option value="">Not declared</option>
+          @for (purity of purities(); track purity.id) {
+            <option [value]="purity.id">{{ purity.name }}</option>
+          }
+        </select>
+      </app-form-field>
+
+      <app-form-field
+        class="form-grid__full"
+        label="Description"
+        [required]="true"
+        [control]="receiveForm.controls.description"
+        [submitted]="submitted()"
+        for="ex-description"
+      >
+        <textarea
+          id="ex-description"
+          class="textarea"
+          rows="2"
+          formControlName="description"
+        ></textarea>
+      </app-form-field>
+
+      <app-form-field
+        class="form-grid__full"
+        label="Notes"
+        [control]="receiveForm.controls.notes"
+        [submitted]="submitted()"
+        for="ex-notes"
+      >
+        <input id="ex-notes" class="input" formControlName="notes" />
+      </app-form-field>
+    </div>
+  </form>
+</app-master-panel>
+
+@if (viewing(); as exchange) {
+  <app-drawer
+    eyebrow="Exchange"
+    [title]="exchange.referenceNumber"
+    [subtitle]="customerName(exchange.customerId)"
+    size="lg"
+    (dismiss)="close()"
+  >
+    <ol class="steps" aria-label="Valuation progress">
+      @for (
+        stage of ['RECEIVED', 'WEIGHED', 'PURITY_TESTED', 'VALUED', 'APPROVED', 'COMPLETED'];
+        track stage
+      ) {
+        <li class="steps__step" [class.steps__step--done]="exchange.status === stage">
+          {{ statusLabel(stage) }}
+        </li>
+      }
+    </ol>
+
+    <dl class="detail-facts">
+      <div>
+        <dt>Status</dt>
+        <dd>
+          <app-status-badge [status]="exchange.status" [label]="statusLabel(exchange.status)" />
+        </dd>
+      </div>
+      <div>
+        <dt>Kind</dt>
+        <dd>{{ exchange.exchangeType }}</dd>
+      </div>
+      <div>
+        <dt>Metal</dt>
+        <dd>{{ metalName(exchange.metalId) }}</dd>
+      </div>
+      <div>
+        <dt>Pieces</dt>
+        <dd class="numeric">{{ exchange.itemCount }}</dd>
+      </div>
+      <div>
+        <dt>Gross weight</dt>
+        <dd class="numeric">{{ exchange.grossWeight ?? '—' }} g</dd>
+      </div>
+      <div>
+        <dt>Stone weight</dt>
+        <dd class="numeric">{{ exchange.stoneWeight ?? 0 }} g</dd>
+      </div>
+      <div>
+        <dt>Net weight</dt>
+        <dd class="numeric">{{ exchange.netWeight ?? '—' }} g</dd>
+      </div>
+      <div>
+        <dt>Tested purity</dt>
+        <dd>{{ purityName(exchange.testedPurityId) }}</dd>
+      </div>
+      <div>
+        <dt>Pure weight</dt>
+        <dd class="numeric">{{ exchange.pureWeight ?? '—' }} g</dd>
+      </div>
+      <div>
+        <dt>Buying rate</dt>
+        <dd class="numeric">{{ exchange.ratePerUnit ?? '—' }}</dd>
+      </div>
+    </dl>
+
+    @if (exchange.grossValuation) {
+      <div class="valuation">
+        <p class="valuation__row">
+          <span>Gross valuation</span>
+          <span class="numeric">{{ exchange.grossValuation | number: '1.2-2' }}</span>
+        </p>
+        <p class="valuation__row">
+          <span>Deduction {{ exchange.deductionPercentage ?? 0 }}%</span>
+          <span class="numeric">−{{ exchange.deductionAmount | number: '1.2-2' }}</span>
+        </p>
+        <p class="valuation__row valuation__row--total">
+          <span>Offer to customer</span>
+          <span class="numeric"
+            >{{ exchange.netValuation | number: '1.2-2' }} {{ exchange.currency }}</span
+          >
+        </p>
+      </div>
+    }
+
+    @if (exchange.rejectionReason) {
+      <p class="form-error">{{ exchange.rejectionReason }}</p>
+    }
+    <p class="muted detail-note">{{ exchange.description }}</p>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Close</button>
+
+      @if (can(exchange, 'WEIGHED') && canProcess()) {
+        <button type="button" class="btn btn--primary" (click)="openStep('weigh')">Weigh</button>
+      }
+      @if (can(exchange, 'PURITY_TESTED') && canProcess()) {
+        <button type="button" class="btn btn--primary" (click)="openStep('purity')">
+          Test purity
+        </button>
+      }
+      <!-- Valuing records the figures and sends the offer straight for approval. -->
+      @if (can(exchange, 'VALUED') && canValue()) {
+        <button type="button" class="btn btn--primary" (click)="openStep('value')">Value</button>
+      }
+      @if (can(exchange, 'APPROVED') && canApprove()) {
+        <button
+          type="button"
+          class="btn btn--danger-ghost"
+          [disabled]="saving()"
+          (click)="reject(exchange)"
+        >
+          Reject
+        </button>
+        <button
+          type="button"
+          class="btn btn--primary"
+          [disabled]="saving()"
+          (click)="approve(exchange)"
+        >
+          Approve
+        </button>
+      }
+      @if (can(exchange, 'COMPLETED') && canProcess()) {
+        <button
+          type="button"
+          class="btn btn--primary"
+          [disabled]="saving()"
+          (click)="complete(exchange)"
+        >
+          Complete
+        </button>
+      }
+      @if (can(exchange, 'RETURNED_TO_CUSTOMER') && canProcess()) {
+        <button
+          type="button"
+          class="btn btn--ghost"
+          [disabled]="saving()"
+          (click)="returnToCustomer(exchange)"
+        >
+          Return to customer
+        </button>
+      }
+    </ng-container>
+  </app-drawer>
+}
+
+@if (step(); as which) {
+  <app-drawer
+    eyebrow="Exchange"
+    [title]="{ weigh: 'Weigh', purity: 'Test purity', value: 'Value' }[which] ?? ''"
+    [subtitle]="viewing()?.referenceNumber ?? ''"
+    size="sm"
+    [closeOnBackdrop]="false"
+    (dismiss)="step.set(null)"
+  >
+    @if (formError(); as message) {
+      <p class="form-error">{{ message }}</p>
+    }
+
+    @switch (which) {
+      @case ('weigh') {
+        <form [formGroup]="weighForm" (ngSubmit)="saveStep()" id="step-form">
+          <div class="form-grid">
+            <app-form-field
+              class="form-grid__full"
+              label="Gross weight (g)"
+              [required]="true"
+              [control]="weighForm.controls.grossWeight"
+              [submitted]="submitted()"
+              for="wg-gross"
+            >
+              <input
+                id="wg-gross"
+                class="input numeric"
+                type="number"
+                step="0.001"
+                min="0"
+                formControlName="grossWeight"
+              />
+            </app-form-field>
+            <app-form-field
+              class="form-grid__full"
+              label="Stone weight (g)"
+              hint="Deducted to give the net metal weight."
+              [control]="weighForm.controls.stoneWeight"
+              [submitted]="submitted()"
+              for="wg-stone"
+            >
+              <input
+                id="wg-stone"
+                class="input numeric"
+                type="number"
+                step="0.001"
+                min="0"
+                formControlName="stoneWeight"
+              />
+            </app-form-field>
+          </div>
+        </form>
+      }
+
+      @case ('purity') {
+        <form [formGroup]="purityForm" (ngSubmit)="saveStep()" id="step-form">
+          <div class="form-grid">
+            <app-form-field
+              class="form-grid__full"
+              label="Tested purity"
+              [required]="true"
+              [control]="purityForm.controls.testedPurityId"
+              [submitted]="submitted()"
+              for="pt-purity"
+            >
+              <select id="pt-purity" class="select" formControlName="testedPurityId">
+                <option value="" disabled>Select the tested purity</option>
+                @for (purity of purities(); track purity.id) {
+                  <option [value]="purity.id">{{ purity.name }}</option>
+                }
+              </select>
+            </app-form-field>
+            <app-form-field
+              class="form-grid__full"
+              label="Method"
+              [control]="purityForm.controls.testMethod"
+              [submitted]="submitted()"
+              for="pt-method"
+            >
+              <input id="pt-method" class="input" formControlName="testMethod" />
+            </app-form-field>
+          </div>
+        </form>
+      }
+
+      @case ('value') {
+        <form [formGroup]="valueForm" (ngSubmit)="saveStep()" id="step-form">
+          <div class="form-grid">
+            <app-form-field
+              class="form-grid__full"
+              label="Deduction %"
+              hint="Refining loss and handling, taken off the gross valuation."
+              [control]="valueForm.controls.deductionPercentage"
+              [submitted]="submitted()"
+              for="vl-deduction"
+            >
+              <input
+                id="vl-deduction"
+                class="input numeric"
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                formControlName="deductionPercentage"
+              />
+            </app-form-field>
+            <app-form-field
+              class="form-grid__full"
+              label="Notes"
+              [control]="valueForm.controls.notes"
+              [submitted]="submitted()"
+              for="vl-notes"
+            >
+              <textarea id="vl-notes" class="textarea" rows="2" formControlName="notes"></textarea>
+            </app-form-field>
+          </div>
+        </form>
+      }
+    }
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="step.set(null)">Cancel</button>
+      <button type="submit" form="step-form" class="btn btn--primary" [disabled]="saving()">
+        @if (saving()) {
+          <app-spinner [size]="14" />
+        }
+        Save
+      </button>
+    </ng-container>
+  </app-drawer>
+}

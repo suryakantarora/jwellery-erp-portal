@@ -1,0 +1,385 @@
+<ng-template #codeCell let-row>
+  <span class="cell-stack">
+    <span class="cell-stack__primary mono">{{ row.itemCode }}</span>
+    @if (row.hallmarkNumber) {
+      <span class="cell-stack__secondary">Hallmark {{ row.hallmarkNumber }}</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #weightCell let-row>
+  <span class="cell-stack cell-stack--end">
+    <span class="numeric">{{ row.grossWeight }} g gross</span>
+    @if (row.netMetalWeight !== null && row.netMetalWeight !== undefined) {
+      <span class="cell-stack__secondary numeric">{{ row.netMetalWeight }} g net metal</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #tagsCell let-row>
+  <span class="chip-row">
+    @if (row.rfidTag) {
+      <span class="chip">RFID</span>
+    }
+    @if (row.qrCode) {
+      <span class="chip">QR</span>
+    }
+    @if (row.barcode) {
+      <span class="chip">Barcode</span>
+    }
+    @if (!row.rfidTag && !row.qrCode && !row.barcode) {
+      <span class="muted">Untagged</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #statusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<app-master-panel
+  title="Jewellery items"
+  eyebrow="Inventory"
+  description="Every physical piece as a unique serialized item — never a SKU and a quantity."
+  [columns]="columns"
+  [page]="result()"
+  [loading]="loading()"
+  [error]="error()"
+  [sort]="sort()"
+  [trackBy]="trackById"
+  [cellTemplates]="templates()"
+  [canManage]="canCreate()"
+  createLabel="New item"
+  searchPlaceholder="Search item code or tag…"
+  emptyTitle="No items"
+  emptyMessage="Create an item, or receive stock against a purchase order."
+  [editing]="creating() ? 'new' : null"
+  drawerTitle="New jewellery item"
+  drawerSubtitle="The piece starts as a draft and enters stock once quality-checked."
+  drawerSize="lg"
+  formId="item-form"
+  [saving]="saving()"
+  saveLabel="Create item"
+  (create)="startCreate()"
+  (rowClick)="openItem($event)"
+  (search)="onSearch($event)"
+  (sortChange)="onSort($event)"
+  (pageChange)="onPage($event)"
+  (sizeChange)="onSizeChange($event)"
+  (retry)="load()"
+  (dismiss)="close()"
+>
+  <span panelToolbar>
+    <app-scan-box (found)="onScan($event)" />
+  </span>
+
+  <div panelFilters class="panel-filters">
+    <label class="panel-filters__field">
+      <span class="field-label">Status</span>
+      <select class="select" (change)="onFilter('status', $event)">
+        <option value="">All statuses</option>
+        @for (status of statuses; track status.value) {
+          <option [value]="status.value" [selected]="status.value === statusFilter()">
+            {{ status.label }}
+          </option>
+        }
+      </select>
+    </label>
+
+    <label class="panel-filters__field">
+      <span class="field-label">Branch</span>
+      <select class="select" (change)="onFilter('branch', $event)">
+        <option value="">All branches</option>
+        @for (branch of branches(); track branch.id) {
+          <option [value]="branch.id" [selected]="branch.id === branchFilter()">
+            {{ branch.name }}
+          </option>
+        }
+      </select>
+    </label>
+
+    <label class="panel-filters__field">
+      <span class="field-label">Location</span>
+      <select class="select" (change)="onFilter('location', $event)">
+        <option value="">All locations</option>
+        @for (location of locations(); track location.id) {
+          <option [value]="location.id" [selected]="location.id === locationFilter()">
+            {{ location.name }}
+          </option>
+        }
+      </select>
+    </label>
+
+    <label class="panel-filters__field">
+      <span class="field-label">Metal</span>
+      <select class="select" (change)="onFilter('metal', $event)">
+        <option value="">All metals</option>
+        @for (metal of metals(); track metal.id) {
+          <option [value]="metal.id" [selected]="metal.id === metalFilter()">
+            {{ metal.name }}
+          </option>
+        }
+      </select>
+    </label>
+
+    @if (activeFilterCount() > 0) {
+      <button type="button" class="btn btn--ghost btn--sm" (click)="clearFilters()">
+        Clear filters
+      </button>
+    }
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="save()" id="item-form">
+    @if (formError(); as message) {
+      <p class="form-error">{{ message }}</p>
+    }
+
+    <div class="form-section">
+      <div class="form-grid">
+        <app-form-field
+          class="form-grid__full"
+          label="Product"
+          [required]="true"
+          [control]="form.controls.productId"
+          [submitted]="submitted()"
+          for="item-product"
+        >
+          <select
+            id="item-product"
+            class="select"
+            formControlName="productId"
+            (change)="onProductChange($event)"
+          >
+            <option value="" disabled>Select a product</option>
+            @for (product of products(); track product.id) {
+              <option [value]="product.id">{{ product.sku }} — {{ product.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Item code"
+          hint="Leave blank and the platform assigns one."
+          [control]="form.controls.itemCode"
+          [submitted]="submitted()"
+          for="item-code"
+        >
+          <input id="item-code" class="input mono" formControlName="itemCode" autocomplete="off" />
+        </app-form-field>
+
+        <app-form-field
+          label="Location"
+          [required]="true"
+          [control]="form.controls.locationId"
+          [submitted]="submitted()"
+          for="item-location"
+        >
+          <select id="item-location" class="select" formControlName="locationId">
+            <option value="" disabled>Select a location</option>
+            @for (location of locations(); track location.id) {
+              <option [value]="location.id">{{ location.name }}</option>
+            }
+          </select>
+        </app-form-field>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3 class="form-section__title">Metal and weight</h3>
+      <div class="form-grid">
+        <app-form-field
+          label="Metal"
+          [control]="form.controls.metalId"
+          [submitted]="submitted()"
+          for="item-metal"
+        >
+          <select
+            id="item-metal"
+            class="select"
+            formControlName="metalId"
+            (change)="onMetalChange($event)"
+          >
+            <option value="">No metal</option>
+            @for (metal of metals(); track metal.id) {
+              <option [value]="metal.id">{{ metal.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Purity"
+          [control]="form.controls.purityId"
+          [submitted]="submitted()"
+          for="item-purity"
+        >
+          <select id="item-purity" class="select" formControlName="purityId">
+            <option value="">No purity</option>
+            @for (purity of formPurities(); track purity.id) {
+              <option [value]="purity.id">{{ purity.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Gross weight (g)"
+          [required]="true"
+          hint="Net metal weight is derived from this less the stones."
+          [control]="form.controls.grossWeight"
+          [submitted]="submitted()"
+          for="item-weight"
+        >
+          <input
+            id="item-weight"
+            class="input numeric"
+            type="number"
+            step="0.001"
+            min="0"
+            formControlName="grossWeight"
+          />
+        </app-form-field>
+
+        <app-form-field
+          label="Size"
+          [control]="form.controls.sizeId"
+          [submitted]="submitted()"
+          for="item-size"
+        >
+          <select
+            id="item-size"
+            class="select"
+            formControlName="sizeId"
+            [disabled]="sizes().length === 0"
+          >
+            <option value="">No size</option>
+            @for (size of sizes(); track size.id) {
+              <option [value]="size.id">{{ size.label }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Hallmark number"
+          [control]="form.controls.hallmarkNumber"
+          [submitted]="submitted()"
+          for="item-hallmark"
+        >
+          <input id="item-hallmark" class="input mono" formControlName="hallmarkNumber" />
+        </app-form-field>
+
+        <app-form-field
+          label="Received on"
+          [control]="form.controls.receivedDate"
+          [submitted]="submitted()"
+          for="item-received"
+        >
+          <input id="item-received" class="input" type="date" formControlName="receivedDate" />
+        </app-form-field>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3 class="form-section__title">Identifiers</h3>
+      <div class="form-grid">
+        <app-form-field
+          label="RFID tag"
+          [control]="form.controls.rfidTag"
+          [submitted]="submitted()"
+          for="item-rfid"
+        >
+          <input id="item-rfid" class="input mono" formControlName="rfidTag" autocomplete="off" />
+        </app-form-field>
+
+        <app-form-field
+          label="QR code"
+          [control]="form.controls.qrCode"
+          [submitted]="submitted()"
+          for="item-qr"
+        >
+          <input id="item-qr" class="input mono" formControlName="qrCode" autocomplete="off" />
+        </app-form-field>
+
+        <app-form-field
+          label="Barcode"
+          [control]="form.controls.barcode"
+          [submitted]="submitted()"
+          for="item-barcode"
+        >
+          <input
+            id="item-barcode"
+            class="input mono"
+            formControlName="barcode"
+            autocomplete="off"
+          />
+        </app-form-field>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3 class="form-section__title">Cost</h3>
+      <div class="form-grid">
+        <app-form-field
+          label="Purchase cost"
+          [control]="form.controls.purchaseCost"
+          [submitted]="submitted()"
+          for="item-purchase"
+        >
+          <input
+            id="item-purchase"
+            class="input numeric"
+            type="number"
+            step="0.01"
+            min="0"
+            formControlName="purchaseCost"
+          />
+        </app-form-field>
+
+        <app-form-field
+          label="Making cost"
+          [control]="form.controls.makingCost"
+          [submitted]="submitted()"
+          for="item-making"
+        >
+          <input
+            id="item-making"
+            class="input numeric"
+            type="number"
+            step="0.01"
+            min="0"
+            formControlName="makingCost"
+          />
+        </app-form-field>
+
+        <app-form-field
+          label="Stone cost"
+          [control]="form.controls.stoneCost"
+          [submitted]="submitted()"
+          for="item-stone-cost"
+        >
+          <input
+            id="item-stone-cost"
+            class="input numeric"
+            type="number"
+            step="0.01"
+            min="0"
+            formControlName="stoneCost"
+          />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Notes"
+          [control]="form.controls.notes"
+          [submitted]="submitted()"
+          for="item-notes"
+        >
+          <textarea id="item-notes" class="textarea" rows="2" formControlName="notes"></textarea>
+        </app-form-field>
+      </div>
+    </div>
+
+    <p class="muted form-note">
+      Stones are set on the piece from its passport once it exists, so a certificate can be attached
+      at the moment it arrives.
+    </p>
+  </form>
+</app-master-panel>

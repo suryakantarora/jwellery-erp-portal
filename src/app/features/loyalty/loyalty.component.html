@@ -1,0 +1,458 @@
+<app-page-header
+  title="Loyalty"
+  eyebrow="Loyalty"
+  description="What a purchase earns, what a point is worth, and where each customer stands."
+/>
+
+<nav class="tabs" role="tablist" aria-label="Loyalty sections">
+  @for (entry of tabs; track entry.id) {
+    <button
+      type="button"
+      role="tab"
+      class="tabs__tab"
+      [class.tabs__tab--active]="tab() === entry.id"
+      [attr.aria-selected]="tab() === entry.id"
+      (click)="selectTab(entry.id)"
+    >
+      {{ entry.label }}
+    </button>
+  }
+</nav>
+
+<ng-template #earnCell let-row>
+  <span class="cell-stack">
+    <span>{{ row.pointsPerCurrencyUnit }} point(s) per unit spent</span>
+    <span class="cell-stack__secondary">1 point = {{ row.currencyValuePerPoint }}</span>
+  </span>
+</ng-template>
+
+<ng-template #tiersCell let-row>
+  <span class="chip-row">
+    @for (tier of row.tiers; track tier.id) {
+      <span class="chip">
+        {{ tier.name }} · {{ tier.minimumPoints }}+
+        @if (tier.discountPercentage) {
+          · {{ tier.discountPercentage }}%
+        }
+      </span>
+    } @empty {
+      <span class="muted">No tiers</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #activeCell let-row>
+  <app-status-badge [status]="row.active ? 'ACTIVE' : 'INACTIVE'" />
+</ng-template>
+
+<ng-template #programActionsCell let-row>
+  <span class="list-actions">
+    @if (canManage()) {
+      <button
+        type="button"
+        class="btn btn--ghost btn--sm"
+        (click)="toggleProgram(row); $event.stopPropagation()"
+      >
+        {{ row.active ? 'Deactivate' : 'Activate' }}
+      </button>
+    }
+  </span>
+</ng-template>
+
+<ng-template #txTypeCell let-row>
+  <app-status-badge
+    [label]="transactionLabel(row.type)"
+    [tone]="
+      row.type === 'EARN'
+        ? 'success'
+        : row.type === 'REDEEM'
+          ? 'info'
+          : row.type === 'EXPIRY'
+            ? 'danger'
+            : 'neutral'
+    "
+  />
+</ng-template>
+
+<ng-template #txPointsCell let-row>
+  <span
+    class="numeric"
+    [class.points-credit]="row.points > 0"
+    [class.points-debit]="row.points < 0"
+  >
+    {{ row.points > 0 ? '+' : '' }}{{ row.points }}
+  </span>
+</ng-template>
+
+<ng-template #txWhenCell let-row>
+  {{ row.occurredAt | relativeTime }}
+</ng-template>
+
+@if (tab() === 'programs') {
+  <app-master-panel
+    title="Programmes"
+    eyebrow="Loyalty"
+    [showHeader]="false"
+    [columns]="programColumns"
+    [page]="programPage()"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="sort()"
+    [trackBy]="trackById"
+    [cellTemplates]="programTemplates()"
+    [canManage]="canManage()"
+    createLabel="New programme"
+    searchPlaceholder="Search programmes…"
+    emptyTitle="No loyalty programme"
+    emptyMessage="Create a programme with its tiers to start rewarding customers."
+    [editing]="creating() ? 'new' : null"
+    drawerTitle="New loyalty programme"
+    drawerSubtitle="Tiers are ranked by the points needed to reach them."
+    drawerSize="lg"
+    formId="program-form"
+    [saving]="saving()"
+    saveLabel="Create programme"
+    (create)="startCreate()"
+    (search)="onSearch($event)"
+    (sortChange)="onSort($event)"
+    (pageChange)="page.set($event)"
+    (sizeChange)="onSizeChange($event)"
+    (retry)="load()"
+    (dismiss)="close()"
+  >
+    <form [formGroup]="programForm" (ngSubmit)="save()" id="program-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+
+      <div class="form-section">
+        <div class="form-grid">
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="programForm.controls.code"
+            [submitted]="submitted()"
+            for="lp-code"
+          >
+            <input id="lp-code" class="input mono" formControlName="code" autocomplete="off" />
+          </app-form-field>
+
+          <app-form-field
+            label="Name"
+            [required]="true"
+            [control]="programForm.controls.name"
+            [submitted]="submitted()"
+            for="lp-name"
+          >
+            <input id="lp-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <app-form-field
+            label="Points per unit spent"
+            [required]="true"
+            hint="Points earned for each unit of currency."
+            [control]="programForm.controls.pointsPerCurrencyUnit"
+            [submitted]="submitted()"
+            for="lp-earn"
+          >
+            <input
+              id="lp-earn"
+              class="input numeric"
+              type="number"
+              step="0.0001"
+              min="0"
+              formControlName="pointsPerCurrencyUnit"
+            />
+          </app-form-field>
+
+          <app-form-field
+            label="Value of one point"
+            [required]="true"
+            hint="What a point is worth when redeemed."
+            [control]="programForm.controls.currencyValuePerPoint"
+            [submitted]="submitted()"
+            for="lp-value"
+          >
+            <input
+              id="lp-value"
+              class="input numeric"
+              type="number"
+              step="0.0001"
+              min="0"
+              formControlName="currencyValuePerPoint"
+            />
+          </app-form-field>
+
+          <app-form-field
+            label="Points valid for (months)"
+            [control]="programForm.controls.pointsValidityMonths"
+            [submitted]="submitted()"
+            for="lp-validity"
+          >
+            <input
+              id="lp-validity"
+              class="input numeric"
+              type="number"
+              min="1"
+              formControlName="pointsValidityMonths"
+            />
+          </app-form-field>
+
+          <app-form-field
+            label="Minimum to redeem"
+            [control]="programForm.controls.minimumRedeemablePoints"
+            [submitted]="submitted()"
+            for="lp-minimum"
+          >
+            <input
+              id="lp-minimum"
+              class="input numeric"
+              type="number"
+              min="0"
+              formControlName="minimumRedeemablePoints"
+            />
+          </app-form-field>
+
+          <app-form-field
+            label="Effective from"
+            [required]="true"
+            [control]="programForm.controls.effectiveFrom"
+            [submitted]="submitted()"
+            for="lp-from"
+          >
+            <input id="lp-from" class="input" type="date" formControlName="effectiveFrom" />
+          </app-form-field>
+
+          <app-form-field
+            label="Effective to"
+            [control]="programForm.controls.effectiveTo"
+            [submitted]="submitted()"
+            for="lp-to"
+          >
+            <input id="lp-to" class="input" type="date" formControlName="effectiveTo" />
+          </app-form-field>
+
+          <div class="form-grid__full">
+            <label class="checkbox">
+              <input type="checkbox" formControlName="earnOnMakingChargeOnly" />
+              <span>Earn on the making charge only, not the metal value</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <header class="section-head">
+          <h3 class="form-section__title">Tiers</h3>
+          <button type="button" class="btn btn--ghost btn--sm" (click)="addTier()">Add tier</button>
+        </header>
+
+        @for (tier of tiers(); track trackTier(tier)) {
+          <div class="tier-row">
+            <label class="tier-row__field">
+              <span class="field-label">Code</span>
+              <input class="input mono" [formControl]="tier.code" />
+            </label>
+            <label class="tier-row__field">
+              <span class="field-label">Name</span>
+              <input class="input" [formControl]="tier.name" />
+            </label>
+            <label class="tier-row__field">
+              <span class="field-label">From points</span>
+              <input
+                class="input numeric"
+                type="number"
+                min="0"
+                [formControl]="tier.minimumPoints"
+              />
+            </label>
+            <label class="tier-row__field">
+              <span class="field-label">Earn ×</span>
+              <input
+                class="input numeric"
+                type="number"
+                step="0.01"
+                min="1"
+                [formControl]="tier.earnMultiplier"
+              />
+            </label>
+            <label class="tier-row__field">
+              <span class="field-label">Discount %</span>
+              <input
+                class="input numeric"
+                type="number"
+                step="0.01"
+                min="0"
+                [formControl]="tier.discountPercentage"
+              />
+            </label>
+            <button
+              type="button"
+              class="btn btn--danger-ghost btn--sm"
+              [disabled]="tiers().length === 1"
+              (click)="removeTier(tier.key)"
+            >
+              Remove
+            </button>
+          </div>
+        }
+      </div>
+    </form>
+  </app-master-panel>
+} @else {
+  <section class="card member-picker">
+    <label class="member-picker__field">
+      <span class="field-label">Customer</span>
+      <select class="select" (change)="onCustomerChange($event)">
+        <option value="">Choose a customer</option>
+        @for (customer of customerList(); track customer.id) {
+          <option [value]="customer.id" [selected]="customer.id === selectedCustomerId()">
+            {{ customer.fullName }} · {{ customer.phone }}
+          </option>
+        }
+      </select>
+    </label>
+
+    @if (account(); as standing) {
+      <div class="member-picker__actions">
+        @if (canRedeem()) {
+          <button type="button" class="btn btn--secondary" (click)="startPoints('redeem')">
+            Redeem points
+          </button>
+        }
+        @if (canAdjust()) {
+          <button type="button" class="btn btn--ghost" (click)="startPoints('adjust')">
+            Adjust
+          </button>
+        }
+      </div>
+    }
+  </section>
+
+  @if (notEnrolled()) {
+    <section class="card enrol-card">
+      <p class="muted">
+        {{ customerName(selectedCustomerId()) }} is not enrolled in a loyalty programme.
+      </p>
+      @if (canManage()) {
+        <button type="button" class="btn btn--primary" (click)="enrol()">Enrol customer</button>
+      }
+    </section>
+  } @else if (account(); as standing) {
+    <section class="metric-row">
+      <article class="card kpi">
+        <p class="kpi__label">Points balance</p>
+        <p class="kpi__value">{{ standing.pointsBalance | number }}</p>
+        <p class="kpi__note">Worth {{ standing.redeemableValue | number: '1.0-2' }}</p>
+      </article>
+      <article class="card kpi kpi--accent">
+        <p class="kpi__label">Tier</p>
+        <p class="kpi__value">{{ standing.tierName ?? standing.tierCode ?? '—' }}</p>
+        <p class="kpi__note">Programme {{ standing.programCode }}</p>
+      </article>
+      <article class="card kpi">
+        <p class="kpi__label">Lifetime points</p>
+        <p class="kpi__value">{{ standing.lifetimePoints | number }}</p>
+        <p class="kpi__note">{{ standing.pointsRedeemed | number }} redeemed</p>
+      </article>
+      <article class="card kpi">
+        <p class="kpi__label">Expired</p>
+        <p class="kpi__value">{{ standing.pointsExpired | number }}</p>
+        <p class="kpi__note">
+          @if (standing.lastActivityAt) {
+            Last activity {{ standing.lastActivityAt | relativeTime }}
+          } @else {
+            No activity yet
+          }
+        </p>
+      </article>
+    </section>
+
+    <app-master-panel
+      title="Points ledger"
+      eyebrow="Loyalty"
+      [showHeader]="false"
+      [columns]="statementColumns"
+      [page]="statement()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="null"
+      [trackBy]="trackById"
+      [cellTemplates]="statementTemplates()"
+      [searchable]="false"
+      [canManage]="false"
+      emptyTitle="No movements"
+      emptyMessage="Points appear here as they are earned, redeemed or adjusted."
+      [editing]="null"
+      formId="ledger"
+      (pageChange)="onStatementPage($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="loadAccount()"
+    />
+
+    <p class="rate-note muted">
+      The ledger is append-only: points are never edited, only earned, redeemed, reversed, expired
+      or adjusted with a reason, so any balance can be explained by the rows above it.
+    </p>
+  } @else {
+    <section class="card enrol-card">
+      <p class="muted">Choose a customer to see where they stand.</p>
+    </section>
+  }
+}
+
+@if (adjusting(); as mode) {
+  <app-drawer
+    eyebrow="Loyalty"
+    [title]="mode === 'redeem' ? 'Redeem points' : 'Adjust points'"
+    [subtitle]="customerName(selectedCustomerId())"
+    size="md"
+    [closeOnBackdrop]="false"
+    (dismiss)="closePoints()"
+  >
+    <form [formGroup]="pointsForm" (ngSubmit)="savePoints()" id="points-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+      <div class="form-grid">
+        <app-form-field
+          class="form-grid__full"
+          label="Points"
+          [required]="true"
+          [hint]="
+            mode === 'redeem'
+              ? 'How many points the customer is spending.'
+              : 'Positive to credit, negative to debit.'
+          "
+          [control]="pointsForm.controls.points"
+          [submitted]="submitted()"
+          for="pt-points"
+        >
+          <input id="pt-points" class="input numeric" type="number" formControlName="points" />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Reason"
+          [required]="true"
+          hint="Recorded on the ledger and in the audit trail."
+          [control]="pointsForm.controls.reason"
+          [submitted]="submitted()"
+          for="pt-reason"
+        >
+          <textarea id="pt-reason" class="textarea" rows="3" formControlName="reason"></textarea>
+        </app-form-field>
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="closePoints()">Cancel</button>
+      <button type="submit" form="points-form" class="btn btn--primary" [disabled]="saving()">
+        @if (saving()) {
+          <app-spinner [size]="14" />
+        }
+        {{ mode === 'redeem' ? 'Redeem' : 'Adjust' }}
+      </button>
+    </ng-container>
+  </app-drawer>
+}

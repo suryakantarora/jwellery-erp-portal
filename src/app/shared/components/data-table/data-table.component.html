@@ -1,0 +1,93 @@
+<div class="table-wrapper" [class.table-wrapper--busy]="loading() && showBody()">
+  <div class="table-scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          @for (column of columns(); track column.key) {
+            <th
+              scope="col"
+              [class.table__cell--center]="column.align === 'center'"
+              [class.table__cell--end]="column.align === 'end'"
+              [class.table__cell--mobile-hidden]="column.hideOnMobile"
+              [class.table__head--sortable]="column.sortable"
+              [style.width]="column.width"
+              [attr.aria-sort]="ariaSortFor(column)"
+            >
+              @if (column.sortable) {
+                <button type="button" class="table__sort" (click)="onSort(column)">
+                  <span>{{ column.header }}</span>
+                  @if (sortDirectionFor(column); as direction) {
+                    <app-icon
+                      [name]="direction === 'asc' ? 'chevronUp' : 'chevronDown'"
+                      [size]="13"
+                    />
+                  } @else {
+                    <span class="table__sort-hint" aria-hidden="true">
+                      <app-icon name="sort" [size]="13" />
+                    </span>
+                  }
+                </button>
+              } @else {
+                {{ column.header }}
+              }
+            </th>
+          }
+        </tr>
+      </thead>
+
+      @if (showBody()) {
+        <tbody>
+          @for (row of rows(); track trackBy()(row, $index); let index = $index) {
+            <tr
+              [class.table__row--clickable]="rowClickable()"
+              [class.table__row--selected]="
+                selectedKey() !== null && selectedKey() === trackBy()(row, index)
+              "
+              [attr.tabindex]="rowClickable() ? 0 : null"
+              [attr.role]="rowClickable() ? 'button' : null"
+              (click)="rowClickable() && rowClick.emit(row)"
+              (keydown.enter)="rowClickable() && rowClick.emit(row)"
+              (keydown.space)="rowClickable() && rowClick.emit(row)"
+            >
+              @for (column of columns(); track column.key) {
+                <td
+                  [class.table__cell--center]="column.align === 'center'"
+                  [class.table__cell--end]="column.align === 'end'"
+                  [class.table__cell--mobile-hidden]="column.hideOnMobile"
+                  [class.mono]="column.mono"
+                  [class.numeric]="column.numeric"
+                >
+                  @if (templateFor(column.key); as template) {
+                    <ng-container
+                      [ngTemplateOutlet]="template"
+                      [ngTemplateOutletContext]="{ $implicit: row, row, index, column }"
+                    />
+                  } @else {
+                    {{ cellText(column, row) }}
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      }
+    </table>
+  </div>
+
+  @if (loading() && !showBody()) {
+    <div class="table-state">
+      <app-spinner [size]="22" [thickness]="2.5" />
+      <p class="table-state__label">Loading records…</p>
+    </div>
+  } @else if (error(); as failure) {
+    <app-error-state [error]="failure" (retry)="retry.emit()" />
+  } @else if (isEmpty()) {
+    <app-empty-state [title]="emptyTitle()" [message]="emptyMessage()" [compact]="true">
+      <ng-content select="[emptyActions]" />
+    </app-empty-state>
+  }
+
+  @if (loading() && showBody()) {
+    <div class="table-wrapper__veil" aria-hidden="true"></div>
+  }
+</div>

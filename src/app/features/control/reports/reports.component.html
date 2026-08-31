@@ -1,0 +1,182 @@
+<app-page-header
+  title="Reports"
+  eyebrow="Reporting"
+  description="Sales, stock and value — the same figures finance sees, not a separate calculation."
+>
+  <label class="visually-hidden" for="rp-branch">Branch</label>
+  <select id="rp-branch" class="select report-control" (change)="onBranch($event)">
+    <option value="">All branches</option>
+    @for (branch of branches(); track branch.id) {
+      <option [value]="branch.id" [selected]="branch.id === branchFilter()">
+        {{ branch.name }}
+      </option>
+    }
+  </select>
+  <input
+    class="input report-control"
+    type="date"
+    [value]="from()"
+    (change)="onDate('from', $event)"
+    aria-label="From"
+  />
+  <input
+    class="input report-control"
+    type="date"
+    [value]="to()"
+    (change)="onDate('to', $event)"
+    aria-label="To"
+  />
+  <button type="button" class="btn btn--ghost" [disabled]="loading()" (click)="load()">
+    Refresh
+  </button>
+</app-page-header>
+
+@if (loading() && !sales()) {
+  <app-loading-state label="Gathering the numbers…" />
+} @else if (error(); as failure) {
+  <app-error-state [error]="failure" (retry)="load()" />
+} @else {
+  @if (sales(); as report) {
+    <section class="metric-row">
+      <article class="card kpi">
+        <p class="kpi__label">Sales</p>
+        <p class="kpi__value">{{ report.saleCount | number }}</p>
+        <p class="kpi__note">{{ report.from }} → {{ report.to }}</p>
+      </article>
+      <article class="card kpi kpi--accent">
+        <p class="kpi__label">Net sales</p>
+        <p class="kpi__value">{{ report.netSales | number: '1.0-2' }}</p>
+        <p class="kpi__note">Gross {{ report.grossSales | number: '1.0-0' }}</p>
+      </article>
+      <article class="card kpi">
+        <p class="kpi__label">Average order</p>
+        <p class="kpi__value">{{ report.averageOrderValue | number: '1.0-2' }}</p>
+      </article>
+      <article class="card kpi">
+        <p class="kpi__label">Discount given</p>
+        <p class="kpi__value">{{ report.totalDiscount | number: '1.0-2' }}</p>
+        <p class="kpi__note">Tax {{ report.totalTax | number: '1.0-0' }}</p>
+      </article>
+    </section>
+
+    <div class="report-grid">
+      <section class="card detail-section">
+        <h2 class="detail-section__title">By day</h2>
+        @if (report.byDay.length === 0) {
+          <p class="muted">Nothing was sold in this period.</p>
+        } @else {
+          <ul class="bars">
+            @for (day of report.byDay; track day.date) {
+              <li class="bars__row">
+                <span class="bars__label mono">{{ day.date }}</span>
+                <span class="bars__track" aria-hidden="true">
+                  <span class="bars__fill" [style.width]="dayWidth(day.totalAmount)"></span>
+                </span>
+                <span class="bars__value numeric">{{ day.totalAmount | number: '1.0-0' }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">By branch</h2>
+        @if (report.byBranch.length === 0) {
+          <p class="muted">No branch has sold anything in this period.</p>
+        } @else {
+          <ul class="line-list">
+            @for (row of report.byBranch; track row.id) {
+              <li class="line">
+                <span>{{ row.name }}</span>
+                <span class="numeric"
+                  >{{ row.saleCount }} · {{ row.totalAmount | number: '1.0-0' }}</span
+                >
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">By product type</h2>
+        @if (report.byProductType.length === 0) {
+          <p class="muted">Nothing to break down yet.</p>
+        } @else {
+          <ul class="line-list">
+            @for (row of report.byProductType; track row.id) {
+              <li class="line">
+                <span>{{ row.name }}</span>
+                <span class="numeric"
+                  >{{ row.saleCount }} · {{ row.totalAmount | number: '1.0-0' }}</span
+                >
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">By salesperson</h2>
+        @if (report.bySalesperson.length === 0) {
+          <p class="muted">No sales are attributed to a salesperson.</p>
+        } @else {
+          <ul class="line-list">
+            @for (row of report.bySalesperson; track row.salespersonId) {
+              <li class="line">
+                <span class="mono">{{ row.username }}</span>
+                <span class="numeric"
+                  >{{ row.saleCount }} · {{ row.totalAmount | number: '1.0-0' }}</span
+                >
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      @if (valuation(); as stock) {
+        <section class="card detail-section">
+          <h2 class="detail-section__title">Stock position</h2>
+          <dl class="detail-facts">
+            <div>
+              <dt>Pieces on hand</dt>
+              <dd class="numeric">{{ stock.itemCount | number }}</dd>
+            </div>
+            <div>
+              <dt>Net metal weight</dt>
+              <dd class="numeric">{{ stock.totalNetMetalWeight | number: '1.0-3' }} g</dd>
+            </div>
+            <div>
+              <dt>At cost</dt>
+              <dd class="numeric">{{ stock.totalCost | number: '1.0-2' }}</dd>
+            </div>
+            <div>
+              <dt>At today's rate</dt>
+              <dd class="numeric">{{ stock.totalMetalValueAtToday | number: '1.0-2' }}</dd>
+            </div>
+          </dl>
+        </section>
+      }
+
+      @if (ageing(); as age) {
+        <section class="card detail-section">
+          <h2 class="detail-section__title">Stock ageing</h2>
+          @if (age.totalItems === 0) {
+            <p class="muted">No sellable stock to age.</p>
+          } @else {
+            <ul class="bars">
+              @for (bucket of age.buckets; track bucket.label) {
+                <li class="bars__row">
+                  <span class="bars__label">{{ bucket.label }}</span>
+                  <span class="bars__track" aria-hidden="true">
+                    <span class="bars__fill" [style.width]="bucketWidth(bucket.itemCount)"></span>
+                  </span>
+                  <span class="bars__value numeric">{{ bucket.itemCount }}</span>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
+    </div>
+  }
+}

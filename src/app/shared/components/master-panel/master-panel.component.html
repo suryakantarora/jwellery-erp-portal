@@ -1,0 +1,97 @@
+@if (showHeader()) {
+  <app-page-header [title]="title()" [eyebrow]="eyebrow()" [description]="description()">
+    @if (canManage()) {
+      <button
+        type="button"
+        class="btn btn--primary"
+        [disabled]="createDisabled()"
+        (click)="create.emit()"
+      >
+        {{ createLabel() }}
+      </button>
+    }
+  </app-page-header>
+}
+
+<section class="list-card">
+  <div class="list-toolbar">
+    @if (searchable()) {
+      <app-search-box [placeholder]="searchPlaceholder()" (search)="search.emit($event)" />
+    }
+    <ng-content select="[panelToolbar]" />
+    <div class="list-toolbar__actions">
+      @if (!showHeader() && canManage()) {
+        <button
+          type="button"
+          class="btn btn--secondary btn--sm"
+          [disabled]="createDisabled()"
+          (click)="create.emit()"
+        >
+          {{ createLabel() }}
+        </button>
+      }
+      <button
+        type="button"
+        class="btn btn--ghost btn--sm"
+        [disabled]="loading()"
+        (click)="retry.emit()"
+      >
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <ng-content select="[panelFilters]" />
+
+  <app-data-table
+    [columns]="columns()"
+    [rows]="page().content"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="sort()"
+    [trackBy]="trackBy()"
+    [cellTemplates]="cellTemplates()"
+    [rowClickable]="true"
+    [emptyTitle]="emptyTitle()"
+    [emptyMessage]="emptyMessage()"
+    (sortChange)="sortChange.emit($event)"
+    (rowClick)="rowClick.emit($event)"
+    (retry)="retry.emit()"
+  />
+
+  <app-pagination
+    [page]="page().page"
+    [size]="page().size"
+    [totalElements]="page().totalElements"
+    [totalPages]="page().totalPages"
+    (pageChange)="pageChange.emit($event)"
+    (sizeChange)="sizeChange.emit($event)"
+  />
+</section>
+
+@if (editing() !== null) {
+  <app-drawer
+    [eyebrow]="eyebrow()"
+    [title]="drawerTitle()"
+    [subtitle]="drawerSubtitle()"
+    [size]="drawerSize()"
+    [closeOnBackdrop]="false"
+    (dismiss)="dismiss.emit()"
+  >
+    <ng-content />
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="dismiss.emit()">
+        {{ editable() ? 'Cancel' : 'Close' }}
+      </button>
+      @if (editable()) {
+        <button type="submit" [attr.form]="formId()" class="btn btn--primary" [disabled]="saving()">
+          @if (saving()) {
+            <app-spinner [size]="14" />
+          }
+          {{ saveLabel() }}
+        </button>
+      }
+    </ng-container>
+  </app-drawer>
+}

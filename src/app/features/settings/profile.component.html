@@ -1,0 +1,153 @@
+<app-page-header
+  title="My profile"
+  eyebrow="Settings"
+  description="Your account details, security and appearance preferences."
+/>
+
+@if (auth.user(); as user) {
+  <div class="profile">
+    <section class="card profile__card">
+      <h2 class="profile__heading">Account</h2>
+
+      <dl class="profile__details">
+        <div>
+          <dt>Full name</dt>
+          <dd>{{ user.fullName }}</dd>
+        </div>
+        <div>
+          <dt>Username</dt>
+          <dd class="mono">{{ user.username }}</dd>
+        </div>
+        <div>
+          <dt>Employee ID</dt>
+          <dd class="mono">{{ user.employeeCode || '—' }}</dd>
+        </div>
+        <div>
+          <dt>Email</dt>
+          <dd>{{ user.email || '—' }}</dd>
+        </div>
+        <div>
+          <dt>Phone</dt>
+          <dd>{{ user.phone || '—' }}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd><app-status-badge [status]="user.status" /></dd>
+        </div>
+        <div>
+          <dt>Last sign-in</dt>
+          <dd>{{ user.lastLoginAt | relativeTime }}</dd>
+        </div>
+        <div class="profile__details-wide">
+          <dt>Roles</dt>
+          <dd>
+            @if (user.roles.length === 0) {
+              —
+            } @else {
+              <span class="profile__chips">
+                @for (role of user.roles; track role) {
+                  <span class="profile__chip">{{ role }}</span>
+                }
+              </span>
+            }
+          </dd>
+        </div>
+      </dl>
+
+      <p class="profile__note">
+        Account details are maintained by an administrator in User Management.
+      </p>
+    </section>
+
+    <div class="profile__column">
+      <section class="card profile__card">
+        <h2 class="profile__heading">Appearance</h2>
+        <p class="profile__subheading">Applies to this browser only.</p>
+
+        <div class="profile__themes" role="group" aria-label="Theme preference">
+          @for (option of themeOptions; track option.value) {
+            <button
+              type="button"
+              class="profile__theme"
+              [class.profile__theme--active]="theme.preference() === option.value"
+              [attr.aria-pressed]="theme.preference() === option.value"
+              (click)="theme.set(option.value)"
+            >
+              {{ option.label }}
+            </button>
+          }
+        </div>
+      </section>
+
+      <section class="card profile__card">
+        <h2 class="profile__heading">Change password</h2>
+        <p class="profile__subheading">At least 8 characters. You stay signed in on this device.</p>
+
+        <form class="profile__form" [formGroup]="form" (ngSubmit)="changePassword()" novalidate>
+          <app-form-field
+            label="Current password"
+            for="currentPassword"
+            [required]="true"
+            [control]="form.controls.currentPassword"
+            [submitted]="submitted()"
+          >
+            <input
+              id="currentPassword"
+              type="password"
+              class="input"
+              formControlName="currentPassword"
+              autocomplete="current-password"
+            />
+          </app-form-field>
+
+          <app-form-field
+            label="New password"
+            for="newPassword"
+            [required]="true"
+            [control]="form.controls.newPassword"
+            [submitted]="submitted()"
+          >
+            <input
+              id="newPassword"
+              type="password"
+              class="input"
+              formControlName="newPassword"
+              autocomplete="new-password"
+            />
+          </app-form-field>
+
+          <app-form-field
+            label="Confirm new password"
+            for="confirmPassword"
+            [required]="true"
+            [control]="form.controls.confirmPassword"
+            [submitted]="submitted()"
+          >
+            <input
+              id="confirmPassword"
+              type="password"
+              class="input"
+              formControlName="confirmPassword"
+              autocomplete="new-password"
+            />
+          </app-form-field>
+
+          @if (mismatch()) {
+            <p class="field-error" role="alert">The two passwords do not match.</p>
+          }
+
+          <div class="profile__actions">
+            <button type="submit" class="btn btn--primary" [disabled]="submitting()">
+              @if (submitting()) {
+                <app-spinner [size]="14" />
+                Saving…
+              } @else {
+                Change password
+              }
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </div>
+}

@@ -1,0 +1,118 @@
+@use '../../../styles/mixins' as *;
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-6);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--info);
+  border-radius: var(--radius-sm);
+  background: var(--info-soft);
+  color: var(--info-text);
+  font-size: var(--text-sm);
+}
+
+.metrics {
+  // Three across rather than auto-fit: there are six tiles, so a four-column
+  // track leaves two stranded on a half-empty second row.
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.panel {
+  padding: var(--space-5) var(--space-6) var(--space-6);
+}
+
+.panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.panel__title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.panel__subtitle {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.activity {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.activity__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+
+.activity__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity__title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  @include truncate;
+}
+
+.activity__detail {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  @include truncate;
+}
+
+.activity__time {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+@include below(lg) {
+  .panels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

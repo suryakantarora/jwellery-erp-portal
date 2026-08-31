@@ -1,0 +1,524 @@
+<app-page-header
+  title="Finance"
+  eyebrow="Finance"
+  description="The chart of accounts, the journal behind every transaction, and the statements they produce."
+/>
+
+<nav class="tabs" role="tablist" aria-label="Finance sections">
+  @for (entry of tabs; track entry.id) {
+    <button
+      type="button"
+      role="tab"
+      class="tabs__tab"
+      [class.tabs__tab--active]="tab() === entry.id"
+      [attr.aria-selected]="tab() === entry.id"
+      (click)="selectTab(entry.id)"
+    >
+      {{ entry.label }}
+    </button>
+  }
+</nav>
+
+<ng-template #entryRefCell let-row>
+  <span class="cell-stack">
+    <span class="cell-stack__primary mono">{{ row.entryNumber }}</span>
+    @if (row.reversalOfId) {
+      <span class="cell-stack__secondary">Reversal</span>
+    } @else if (row.reversedById) {
+      <span class="cell-stack__secondary">Reversed</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #entryAmountCell let-row>
+  <span class="numeric">{{ row.totalDebit | number: '1.2-2' }}</span>
+</ng-template>
+
+<ng-template #entryStateCell let-row>
+  <span class="cell-stack">
+    @if (row.postedAt) {
+      <span>{{ row.postedAt | relativeTime }}</span>
+      <span class="cell-stack__secondary">{{ row.postedBy }}</span>
+    } @else {
+      <span class="muted">Not posted</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #accountTypeCell let-row>
+  <app-status-badge [tone]="'neutral'" [label]="row.accountType" [dot]="false" />
+</ng-template>
+
+<ng-template #accountFlagsCell let-row>
+  <span class="chip-row">
+    @if (row.postable) {
+      <span class="chip">Postable</span>
+    } @else {
+      <span class="chip">Summary</span>
+    }
+    @if (row.systemAccount) {
+      <span class="chip">System</span>
+    }
+    @if (!row.active) {
+      <span class="chip">Inactive</span>
+    }
+  </span>
+</ng-template>
+
+@switch (tab()) {
+  @case ('journal') {
+    <app-master-panel
+      title="Journal"
+      eyebrow="Finance"
+      [showHeader]="false"
+      [columns]="entryColumns"
+      [page]="entries()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="sort()"
+      [trackBy]="trackById"
+      [cellTemplates]="entryTemplates()"
+      [searchable]="false"
+      [canManage]="canPost()"
+      createLabel="Post a manual entry"
+      emptyTitle="Nothing posted"
+      emptyMessage="Entries appear here as sales, payments and receipts are recorded."
+      [editing]="creating() ? 'new' : null"
+      drawerTitle="Post a manual entry"
+      drawerSubtitle="For corrections the business modules cannot make themselves."
+      drawerSize="lg"
+      formId="journal-form"
+      [saving]="saving()"
+      saveLabel="Post entry"
+      (create)="startCreate()"
+      (rowClick)="view($event)"
+      (sortChange)="onSort($event)"
+      (pageChange)="onPage($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="load()"
+      (dismiss)="close()"
+    >
+      <div panelFilters class="panel-filters">
+        <label class="panel-filters__field">
+          <span class="field-label">From</span>
+          <input class="input" type="date" [value]="from()" (change)="onDate('from', $event)" />
+        </label>
+        <label class="panel-filters__field">
+          <span class="field-label">To</span>
+          <input class="input" type="date" [value]="to()" (change)="onDate('to', $event)" />
+        </label>
+      </div>
+
+      <form [formGroup]="journalForm" (ngSubmit)="save()" id="journal-form">
+        @if (formError(); as message) {
+          <p class="form-error">{{ message }}</p>
+        }
+
+        <div class="form-grid">
+          <app-form-field
+            label="Date"
+            [required]="true"
+            [control]="journalForm.controls.entryDate"
+            [submitted]="submitted()"
+            for="je-date"
+          >
+            <input id="je-date" class="input" type="date" formControlName="entryDate" />
+          </app-form-field>
+
+          <app-form-field
+            label="Description"
+            [required]="true"
+            [control]="journalForm.controls.description"
+            [submitted]="submitted()"
+            for="je-description"
+          >
+            <input id="je-description" class="input" formControlName="description" />
+          </app-form-field>
+        </div>
+
+        <div class="form-section">
+          <header class="section-head">
+            <h3 class="form-section__title">Lines</h3>
+            <button type="button" class="btn btn--ghost btn--sm" (click)="addLine()">
+              Add line
+            </button>
+          </header>
+
+          @for (line of lines(); track trackLine(line)) {
+            <div class="journal-line">
+              <label class="journal-line__field journal-line__field--wide">
+                <span class="field-label">Account</span>
+                <select class="select" [formControl]="line.accountCode">
+                  <option value="" disabled>Select an account</option>
+                  @for (account of postableAccounts(); track account.id) {
+                    <option [value]="account.code">{{ account.code }} — {{ account.name }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="journal-line__field">
+                <span class="field-label">Debit</span>
+                <input
+                  class="input numeric"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  [formControl]="line.debit"
+                />
+              </label>
+
+              <label class="journal-line__field">
+                <span class="field-label">Credit</span>
+                <input
+                  class="input numeric"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  [formControl]="line.credit"
+                />
+              </label>
+
+              <button
+                type="button"
+                class="btn btn--danger-ghost btn--sm"
+                [disabled]="lines().length <= 2"
+                (click)="removeLine(line.key)"
+              >
+                Remove
+              </button>
+            </div>
+          }
+
+          <p class="journal-total" [class.journal-total--balanced]="totals().balanced">
+            <span
+              >Debits {{ totals().debit | number: '1.2-2' }} · Credits
+              {{ totals().credit | number: '1.2-2' }}</span
+            >
+            <strong>{{ totals().balanced ? 'Balanced' : 'Out of balance' }}</strong>
+          </p>
+        </div>
+      </form>
+    </app-master-panel>
+  }
+
+  @case ('accounts') {
+    <app-master-panel
+      title="Chart of accounts"
+      eyebrow="Finance"
+      [showHeader]="false"
+      [columns]="accountColumns"
+      [page]="accountPage()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="sort()"
+      [trackBy]="trackById"
+      [cellTemplates]="accountTemplates()"
+      [canManage]="canManage()"
+      createLabel="New account"
+      searchPlaceholder="Search code or name…"
+      emptyTitle="No accounts"
+      emptyMessage="The chart of accounts defines where every posting lands."
+      [editing]="creating() ? 'new' : null"
+      drawerTitle="New account"
+      drawerSubtitle="A summary account groups others; only a postable account can carry a line."
+      formId="account-form"
+      [saving]="saving()"
+      saveLabel="Create account"
+      (create)="startCreate()"
+      (search)="onSearch($event)"
+      (sortChange)="onSort($event)"
+      (pageChange)="page.set($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="load()"
+      (dismiss)="close()"
+    >
+      <form [formGroup]="accountForm" (ngSubmit)="save()" id="account-form">
+        @if (formError(); as message) {
+          <p class="form-error">{{ message }}</p>
+        }
+        <div class="form-grid">
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="accountForm.controls.code"
+            [submitted]="submitted()"
+            for="ac-code"
+          >
+            <input id="ac-code" class="input mono" formControlName="code" autocomplete="off" />
+          </app-form-field>
+
+          <app-form-field
+            label="Name"
+            [required]="true"
+            [control]="accountForm.controls.name"
+            [submitted]="submitted()"
+            for="ac-name"
+          >
+            <input id="ac-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Inside"
+            hint="Optional parent account."
+            [control]="accountForm.controls.parentId"
+            [submitted]="submitted()"
+            for="ac-parent"
+          >
+            <select id="ac-parent" class="select" formControlName="parentId">
+              <option value="">Top level</option>
+              @for (account of accounts(); track account.id) {
+                <option [value]="account.id">{{ account.code }} — {{ account.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="Currency"
+            [control]="accountForm.controls.currency"
+            [submitted]="submitted()"
+            for="ac-currency"
+          >
+            <input id="ac-currency" class="input mono" maxlength="3" formControlName="currency" />
+          </app-form-field>
+
+          <div>
+            <label class="checkbox">
+              <input type="checkbox" formControlName="postable" />
+              <span>Journal lines may post here</span>
+            </label>
+          </div>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Description"
+            [control]="accountForm.controls.description"
+            [submitted]="submitted()"
+            for="ac-description"
+          >
+            <input id="ac-description" class="input" formControlName="description" />
+          </app-form-field>
+        </div>
+      </form>
+    </app-master-panel>
+  }
+
+  @case ('reports') {
+    <section class="card closing-picker">
+      <label class="closing-picker__field">
+        <span class="field-label">From</span>
+        <input class="input" type="date" [value]="from()" (change)="onDate('from', $event)" />
+      </label>
+      <label class="closing-picker__field">
+        <span class="field-label">To</span>
+        <input class="input" type="date" [value]="to()" (change)="onDate('to', $event)" />
+      </label>
+      <button type="button" class="btn btn--ghost" [disabled]="loading()" (click)="load()">
+        Refresh
+      </button>
+    </section>
+
+    <div class="report-grid">
+      @if (trialBalance(); as report) {
+        <section class="card detail-section report-grid__wide">
+          <header class="section-head">
+            <h2 class="detail-section__title">Trial balance</h2>
+            <app-status-badge
+              [tone]="report.balanced ? 'success' : 'danger'"
+              [label]="report.balanced ? 'Balanced' : 'Out of balance'"
+            />
+          </header>
+
+          @if (report.lines.length === 0) {
+            <p class="muted">Nothing posted in this period.</p>
+          } @else {
+            <div class="table-scroll">
+              <table class="mini-table">
+                <thead>
+                  <tr>
+                    <th>Account</th>
+                    <th class="align-end">Debit</th>
+                    <th class="align-end">Credit</th>
+                    <th class="align-end">Closing</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (line of report.lines; track line.accountCode) {
+                    <tr>
+                      <td>
+                        <span class="cell-stack">
+                          <span class="cell-stack__primary">{{ line.accountName }}</span>
+                          <span class="cell-stack__secondary mono">{{ line.accountCode }}</span>
+                        </span>
+                      </td>
+                      <td class="align-end numeric">{{ line.periodDebit | number: '1.2-2' }}</td>
+                      <td class="align-end numeric">{{ line.periodCredit | number: '1.2-2' }}</td>
+                      <td class="align-end numeric">{{ line.closingBalance | number: '1.2-2' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+      }
+
+      @if (profitAndLoss(); as report) {
+        <section class="card detail-section">
+          <h2 class="detail-section__title">Profit and loss</h2>
+          <dl class="detail-facts">
+            <div>
+              <dt>Income</dt>
+              <dd class="numeric">{{ report.totalIncome | number: '1.2-2' }}</dd>
+            </div>
+            <div>
+              <dt>Expenses</dt>
+              <dd class="numeric">{{ report.totalExpense | number: '1.2-2' }}</dd>
+            </div>
+            <div>
+              <dt>Gross profit</dt>
+              <dd class="numeric">{{ report.grossProfit | number: '1.2-2' }}</dd>
+            </div>
+            <div>
+              <dt>Net profit</dt>
+              <dd class="numeric">{{ report.netProfit | number: '1.2-2' }}</dd>
+            </div>
+          </dl>
+
+          @if (report.income.length > 0) {
+            <h3 class="report-subtitle">Income</h3>
+            <ul class="line-list">
+              @for (line of report.income; track line.accountCode) {
+                <li class="line">
+                  <span>{{ line.accountName }}</span>
+                  <span class="numeric">{{ line.amount | number: '1.2-2' }}</span>
+                </li>
+              }
+            </ul>
+          }
+
+          @if (report.expenses.length > 0) {
+            <h3 class="report-subtitle">Expenses</h3>
+            <ul class="line-list">
+              @for (line of report.expenses; track line.accountCode) {
+                <li class="line">
+                  <span>{{ line.accountName }}</span>
+                  <span class="numeric">{{ line.amount | number: '1.2-2' }}</span>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
+
+      @if (balanceSheet(); as report) {
+        <section class="card detail-section">
+          <header class="section-head">
+            <h2 class="detail-section__title">Balance sheet</h2>
+            <app-status-badge
+              [tone]="report.balanced ? 'success' : 'danger'"
+              [label]="
+                report.balanced ? 'Balanced' : 'Out by ' + (report.difference | number: '1.2-2')
+              "
+            />
+          </header>
+
+          <dl class="detail-facts">
+            <div>
+              <dt>Assets</dt>
+              <dd class="numeric">{{ report.totalAssets | number: '1.2-2' }}</dd>
+            </div>
+            <div>
+              <dt>Liabilities</dt>
+              <dd class="numeric">{{ report.totalLiabilities | number: '1.2-2' }}</dd>
+            </div>
+            <div>
+              <dt>Equity</dt>
+              <dd class="numeric">{{ report.totalEquity | number: '1.2-2' }}</dd>
+            </div>
+            <div>
+              <dt>Retained earnings</dt>
+              <dd class="numeric">{{ report.retainedEarnings | number: '1.2-2' }}</dd>
+            </div>
+          </dl>
+        </section>
+      }
+    </div>
+  }
+}
+
+@if (viewing(); as entry) {
+  <app-drawer
+    eyebrow="Finance"
+    [title]="entry.entryNumber"
+    [subtitle]="entry.description"
+    size="lg"
+    (dismiss)="close()"
+  >
+    <dl class="detail-facts">
+      <div>
+        <dt>Date</dt>
+        <dd>{{ entry.entryDate }}</dd>
+      </div>
+      <div>
+        <dt>Source</dt>
+        <dd>{{ entry.referenceType ?? 'Manual' }}</dd>
+      </div>
+      <div>
+        <dt>Debit</dt>
+        <dd class="numeric">{{ entry.totalDebit | number: '1.2-2' }}</dd>
+      </div>
+      <div>
+        <dt>Credit</dt>
+        <dd class="numeric">{{ entry.totalCredit | number: '1.2-2' }}</dd>
+      </div>
+      @if (entry.postedAt) {
+        <div>
+          <dt>Posted</dt>
+          <dd>{{ entry.postedAt | relativeTime }} · {{ entry.postedBy }}</dd>
+        </div>
+      }
+    </dl>
+
+    <div class="form-section">
+      <h3 class="form-section__title">Lines</h3>
+      <div class="table-scroll">
+        <table class="mini-table">
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th class="align-end">Debit</th>
+              <th class="align-end">Credit</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (
+              line of entry.lines;
+              track line.accountCode + (line.debit ?? 0) + (line.credit ?? 0)
+            ) {
+              <tr>
+                <td>
+                  <span class="cell-stack">
+                    <span class="cell-stack__primary">{{ line.accountName }}</span>
+                    <span class="cell-stack__secondary mono">{{ line.accountCode }}</span>
+                  </span>
+                </td>
+                <td class="align-end numeric">{{ line.debit | number: '1.2-2' }}</td>
+                <td class="align-end numeric">{{ line.credit | number: '1.2-2' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Close</button>
+      @if (canPost() && !entry.reversedById && !entry.reversalOfId) {
+        <button type="button" class="btn btn--danger-ghost" (click)="reverse(entry)">
+          Post a reversal
+        </button>
+      }
+    </ng-container>
+  </app-drawer>
+}

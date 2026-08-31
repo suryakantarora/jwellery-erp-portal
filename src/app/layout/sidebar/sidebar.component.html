@@ -1,0 +1,74 @@
+<nav class="sidebar" [class.sidebar--collapsed]="collapsed()" aria-label="Main navigation">
+  <div class="sidebar__scroll">
+    @for (section of sections(); track section.label) {
+      <div class="sidebar__section">
+        @if (!collapsed()) {
+          <p class="sidebar__section-label">{{ section.label }}</p>
+        }
+
+        <ul class="sidebar__list">
+          @for (item of section.items; track item.label) {
+            <li class="sidebar__entry">
+              @if (item.route) {
+                <a
+                  class="sidebar__link"
+                  [routerLink]="item.route"
+                  routerLinkActive="sidebar__link--active"
+                  [routerLinkActiveOptions]="{ exact: false }"
+                  [attr.title]="collapsed() ? item.label : null"
+                  (click)="navigate.emit()"
+                >
+                  <app-icon [name]="item.icon" [size]="18" />
+                  @if (!collapsed()) {
+                    <span class="sidebar__label">{{ item.label }}</span>
+                  }
+                </a>
+              } @else {
+                <button
+                  type="button"
+                  class="sidebar__link sidebar__link--group"
+                  [class.sidebar__link--active]="containsActiveRoute(item)"
+                  [attr.aria-expanded]="isExpanded(item)"
+                  [attr.title]="collapsed() ? item.label : null"
+                  (click)="toggle(item)"
+                >
+                  <app-icon [name]="item.icon" [size]="18" />
+                  @if (!collapsed()) {
+                    <span class="sidebar__label">{{ item.label }}</span>
+                    <app-icon
+                      class="sidebar__chevron"
+                      [name]="isExpanded(item) ? 'chevronUp' : 'chevronDown'"
+                      [size]="14"
+                    />
+                  }
+                </button>
+
+                @if (isExpanded(item) && !collapsed()) {
+                  <ul class="sidebar__sublist">
+                    @for (child of item.children; track child.route) {
+                      <li>
+                        <!--
+                          Highlighted by the longest-match rule rather than
+                          routerLinkActive: sibling routes nest, so prefix
+                          matching would light up two children at once.
+                        -->
+                        <a
+                          class="sidebar__sublink"
+                          [class.sidebar__sublink--active]="activeChild(item) === child.route"
+                          [routerLink]="child.route"
+                          (click)="navigate.emit()"
+                        >
+                          {{ child.label }}
+                        </a>
+                      </li>
+                    }
+                  </ul>
+                }
+              }
+            </li>
+          }
+        </ul>
+      </div>
+    }
+  </div>
+</nav>

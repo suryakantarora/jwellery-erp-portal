@@ -1,0 +1,52 @@
+<app-page-header
+  title="Permissions"
+  eyebrow="Users & Access"
+  description="Every permission the backend enforces, grouped by module, and the roles that grant it."
+>
+  <button type="button" class="btn btn--ghost" (click)="load()" [disabled]="loading()">
+    Refresh
+  </button>
+</app-page-header>
+
+@if (loading()) {
+  <app-loading-state label="Loading the permission catalogue…" />
+} @else if (error(); as failure) {
+  <app-error-state [error]="failure" (retry)="load()" />
+} @else {
+  <section class="list-card">
+    <div class="list-toolbar">
+      <app-search-box placeholder="Search permission or module…" (search)="search.set($event)" />
+      <p class="list-toolbar__actions muted">{{ total() }} permissions</p>
+    </div>
+
+    <div class="catalogue">
+      @for (group of visible(); track group.module) {
+        <section class="catalogue__group">
+          <h2 class="catalogue__title">{{ group.label }}</h2>
+
+          <ul class="catalogue__list">
+            @for (row of group.rows; track row.permission.id) {
+              <li class="catalogue__item">
+                <div class="catalogue__text">
+                  <span class="mono catalogue__code">{{ row.permission.code }}</span>
+                  <span class="catalogue__description">{{
+                    row.permission.description || '—'
+                  }}</span>
+                </div>
+                <div class="chip-row">
+                  @for (role of row.roles; track role) {
+                    <span class="chip">{{ role }}</span>
+                  } @empty {
+                    <span class="muted">No role grants this</span>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        </section>
+      } @empty {
+        <p class="catalogue__empty muted">Nothing matches that search.</p>
+      }
+    </div>
+  </section>
+}

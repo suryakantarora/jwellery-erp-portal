@@ -1,0 +1,336 @@
+<app-page-header
+  title="Compliance & audit"
+  eyebrow="Compliance"
+  description="Reportable transactions, identity verification, controlled approvals and the full audit trail."
+>
+  @if (tab() !== 'kyc' && tab() !== 'audit') {
+    <label class="visually-hidden" for="cm-branch">Branch</label>
+    <select id="cm-branch" class="select report-control" (change)="onBranch($event)">
+      <option value="">All branches</option>
+      @for (branch of branches(); track branch.id) {
+        <option [value]="branch.id" [selected]="branch.id === branchFilter()">
+          {{ branch.name }}
+        </option>
+      }
+    </select>
+    <input
+      class="input report-control"
+      type="date"
+      [value]="from()"
+      (change)="onDate('from', $event)"
+      aria-label="From"
+    />
+    <input
+      class="input report-control"
+      type="date"
+      [value]="to()"
+      (change)="onDate('to', $event)"
+      aria-label="To"
+    />
+  }
+  <button type="button" class="btn btn--ghost" [disabled]="loading()" (click)="load()">
+    Refresh
+  </button>
+</app-page-header>
+
+<nav class="tabs" role="tablist" aria-label="Compliance sections">
+  @for (entry of tabs; track entry.id) {
+    <button
+      type="button"
+      role="tab"
+      class="tabs__tab"
+      [class.tabs__tab--active]="tab() === entry.id"
+      [attr.aria-selected]="tab() === entry.id"
+      (click)="selectTab(entry.id)"
+    >
+      {{ entry.label }}
+    </button>
+  }
+</nav>
+
+<ng-template #auditActionCell let-row>
+  <span class="mono">{{ row.action }}</span>
+</ng-template>
+
+<ng-template #auditWhenCell let-row>
+  {{ row.occurredAt | relativeTime }}
+</ng-template>
+
+@switch (tab()) {
+  @case ('high-value') {
+    @if (highValue(); as report) {
+      <section class="metric-row">
+        <article class="card kpi">
+          <p class="kpi__label">Reportable transactions</p>
+          <p class="kpi__value">{{ report.transactionCount }}</p>
+          <p class="kpi__note">Above {{ report.threshold | number: '1.0-0' }}</p>
+        </article>
+        <article class="card kpi">
+          <p class="kpi__label">Total value</p>
+          <p class="kpi__value">{{ report.totalValue | number: '1.0-2' }}</p>
+        </article>
+        <article class="card kpi" [class.metric--alert]="report.unverifiedCustomerCount > 0">
+          <p class="kpi__label">Unverified customers</p>
+          <p class="kpi__value">{{ report.unverifiedCustomerCount }}</p>
+          <p class="kpi__note">High-value sales without verified KYC</p>
+        </article>
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Transactions</h2>
+        @if (report.transactions.length === 0) {
+          <p class="muted">No transaction in this period reached the reporting threshold.</p>
+        } @else {
+          <div class="table-scroll">
+            <table class="mini-table">
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Customer</th>
+                  <th>KYC</th>
+                  <th class="align-end">Total</th>
+                  <th class="align-end">Cash</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of report.transactions; track row.saleId) {
+                  <tr>
+                    <td>
+                      <span class="cell-stack">
+                        <span class="cell-stack__primary mono">{{
+                          row.invoiceNumber ?? row.saleNumber
+                        }}</span>
+                        <span class="cell-stack__secondary">{{ row.saleDate }}</span>
+                      </span>
+                    </td>
+                    <td>
+                      <span class="cell-stack">
+                        <span class="cell-stack__primary">{{ row.customerName }}</span>
+                        <span class="cell-stack__secondary mono">{{ row.customerCode }}</span>
+                      </span>
+                    </td>
+                    <td>
+                      <app-status-badge
+                        [status]="row.kycStatus"
+                        [tone]="row.kycVerified ? 'success' : 'danger'"
+                      />
+                    </td>
+                    <td class="align-end numeric">{{ row.totalAmount | number: '1.2-2' }}</td>
+                    <td class="align-end numeric">
+                      {{ row.cashAmount | number: '1.2-2' }}
+                      @if (row.cashReportable) {
+                        <span class="chip chip--danger">Reportable</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+  }
+
+  @case ('kyc') {
+    @if (kyc(); as report) {
+      <section class="metric-row">
+        <article class="card kpi">
+          <p class="kpi__label">Customers</p>
+          <p class="kpi__value">{{ report.totalCustomers | number }}</p>
+        </article>
+        <article class="card kpi">
+          <p class="kpi__label">Verified</p>
+          <p class="kpi__value">{{ report.verified | number }}</p>
+        </article>
+        <article class="card kpi" [class.metric--alert]="report.pending > 0">
+          <p class="kpi__label">Pending</p>
+          <p class="kpi__value">{{ report.pending | number }}</p>
+          <p class="kpi__note">{{ report.rejected }} rejected</p>
+        </article>
+        <article class="card kpi" [class.metric--alert]="report.verifiedWithExpiredDocuments > 0">
+          <p class="kpi__label">Expired documents</p>
+          <p class="kpi__value">{{ report.verifiedWithExpiredDocuments | number }}</p>
+          <p class="kpi__note">Verified but the papers have lapsed</p>
+        </article>
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Exceptions</h2>
+        @if (report.exceptions.length === 0) {
+          <p class="muted">No customer needs attention.</p>
+        } @else {
+          <div class="table-scroll">
+            <table class="mini-table">
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>State</th>
+                  <th>Issue</th>
+                  <th class="align-end">Lifetime spend</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of report.exceptions; track row.customerId) {
+                  <tr>
+                    <td>
+                      <span class="cell-stack">
+                        <span class="cell-stack__primary">{{ row.customerName }}</span>
+                        <span class="cell-stack__secondary mono">{{ row.customerCode }}</span>
+                      </span>
+                    </td>
+                    <td><app-status-badge [status]="row.kycStatus" /></td>
+                    <td>
+                      {{ row.issue }}
+                      @if (row.documentExpiry) {
+                        <span class="muted">· expired {{ row.documentExpiry }}</span>
+                      }
+                    </td>
+                    <td class="align-end numeric">{{ row.lifetimeSpend | number: '1.0-2' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+  }
+
+  @case ('dual-auth') {
+    @if (dualAuth(); as report) {
+      <section class="metric-row">
+        <article class="card kpi">
+          <p class="kpi__label">Controlled actions</p>
+          <p class="kpi__value">{{ report.totalControlled }}</p>
+        </article>
+        <article class="card kpi">
+          <p class="kpi__label">Fully authorised</p>
+          <p class="kpi__value">{{ report.fullyAuthorised }}</p>
+        </article>
+        <article class="card kpi" [class.metric--alert]="report.singleApproverOnly > 0">
+          <p class="kpi__label">One approver only</p>
+          <p class="kpi__value">{{ report.singleApproverOnly }}</p>
+          <p class="kpi__note">Went through without a second pair of eyes</p>
+        </article>
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Controlled actions</h2>
+        @if (report.actions.length === 0) {
+          <p class="muted">No controlled action was taken in this period.</p>
+        } @else {
+          <div class="table-scroll">
+            <table class="mini-table">
+              <thead>
+                <tr>
+                  <th>Control</th>
+                  <th>Document</th>
+                  <th>First approver</th>
+                  <th>Second approver</th>
+                  <th>State</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of report.actions; track row.entityId) {
+                  <tr>
+                    <td>{{ row.controlType }}</td>
+                    <td class="mono">{{ row.reference }}</td>
+                    <td class="mono">{{ row.firstApprover ?? '—' }}</td>
+                    <td class="mono">{{ row.secondApprover ?? '—' }}</td>
+                    <td>
+                      <app-status-badge
+                        [tone]="row.fullyAuthorised ? 'success' : 'warning'"
+                        [label]="row.fullyAuthorised ? 'Authorised' : 'Single approver'"
+                      />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+  }
+
+  @case ('audit') {
+    <app-master-panel
+      title="Audit trail"
+      eyebrow="Compliance"
+      [showHeader]="false"
+      [columns]="auditColumns"
+      [page]="auditLogs()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="null"
+      [trackBy]="trackById"
+      [cellTemplates]="auditTemplates()"
+      [searchable]="false"
+      [canManage]="false"
+      emptyTitle="Nothing recorded"
+      emptyMessage="Every change the platform makes is written here."
+      [editing]="null"
+      formId="audit-trail"
+      (rowClick)="view($event)"
+      (pageChange)="onPage($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="load()"
+    >
+      <div panelFilters class="panel-filters">
+        <label class="panel-filters__field">
+          <span class="field-label">Record type</span>
+          <input
+            class="input mono"
+            placeholder="e.g. Sale, JewelleryItem"
+            [value]="entityFilter()"
+            (change)="onEntityFilter($event)"
+          />
+        </label>
+      </div>
+    </app-master-panel>
+  }
+}
+
+@if (viewing(); as log) {
+  <app-drawer
+    eyebrow="Audit trail"
+    [title]="log.action"
+    [subtitle]="log.entityType + (log.entityId ? ' · ' + log.entityId : '')"
+    size="lg"
+    (dismiss)="close()"
+  >
+    <dl class="detail-facts">
+      <div>
+        <dt>When</dt>
+        <dd>{{ log.occurredAt | relativeTime }}</dd>
+      </div>
+      <div>
+        <dt>By</dt>
+        <dd class="mono">{{ log.username ?? 'system' }}</dd>
+      </div>
+      <div>
+        <dt>Branch</dt>
+        <dd>{{ branchName(log.branchId) }}</dd>
+      </div>
+      <div>
+        <dt>Correlation</dt>
+        <dd class="mono">{{ log.correlationId ?? '—' }}</dd>
+      </div>
+    </dl>
+
+    <div class="form-section">
+      <h3 class="form-section__title">Before</h3>
+      <pre class="audit-json">{{ pretty(log.oldValue) }}</pre>
+    </div>
+
+    <div class="form-section">
+      <h3 class="form-section__title">After</h3>
+      <pre class="audit-json">{{ pretty(log.newValue) }}</pre>
+    </div>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Close</button>
+    </ng-container>
+  </app-drawer>
+}

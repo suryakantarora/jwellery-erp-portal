@@ -1,0 +1,629 @@
+<app-page-header
+  title="Procurement"
+  eyebrow="Procurement"
+  description="Requisitions from the branches, and the orders raised with suppliers against them."
+/>
+
+<nav class="tabs" role="tablist" aria-label="Procurement sections">
+  @for (entry of tabs; track entry.id) {
+    <button
+      type="button"
+      role="tab"
+      class="tabs__tab"
+      [class.tabs__tab--active]="tab() === entry.id"
+      [attr.aria-selected]="tab() === entry.id"
+      (click)="selectTab(entry.id)"
+    >
+      {{ entry.label }}
+    </button>
+  }
+</nav>
+
+<ng-template #orderRefCell let-row>
+  <span class="cell-stack">
+    <span class="cell-stack__primary mono">{{ row.orderNumber }}</span>
+    @if (row.createdBy) {
+      <span class="cell-stack__secondary">{{ row.createdBy }}</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #orderStatusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<ng-template #orderProgressCell let-row>
+  <span class="numeric">
+    {{ receivedCount(row).received }} / {{ receivedCount(row).ordered }}
+  </span>
+</ng-template>
+
+<ng-template #orderActionsCell let-row>
+  <span class="list-actions">
+    <button
+      type="button"
+      class="btn btn--ghost btn--sm"
+      (click)="viewOrder(row); $event.stopPropagation()"
+    >
+      Open
+    </button>
+    @if (row.status === 'PENDING_APPROVAL' && canApprove()) {
+      <button
+        type="button"
+        class="btn btn--secondary btn--sm"
+        [disabled]="saving()"
+        (click)="approveOrder(row); $event.stopPropagation()"
+      >
+        Approve
+      </button>
+      <button
+        type="button"
+        class="btn btn--danger-ghost btn--sm"
+        [disabled]="saving()"
+        (click)="rejectOrder(row); $event.stopPropagation()"
+      >
+        Reject
+      </button>
+    }
+  </span>
+</ng-template>
+
+<ng-template #reqRefCell let-row>
+  <span class="cell-stack">
+    <span class="cell-stack__primary mono">{{ row.referenceNumber }}</span>
+    @if (row.createdBy) {
+      <span class="cell-stack__secondary">{{ row.createdBy }}</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #reqStatusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<ng-template #reqActionsCell let-row>
+  <span class="list-actions">
+    <button
+      type="button"
+      class="btn btn--ghost btn--sm"
+      (click)="viewRequisition(row); $event.stopPropagation()"
+    >
+      Open
+    </button>
+    @if (row.status === 'PENDING_APPROVAL' && canApprove()) {
+      <button
+        type="button"
+        class="btn btn--secondary btn--sm"
+        [disabled]="saving()"
+        (click)="approveRequisition(row); $event.stopPropagation()"
+      >
+        Approve
+      </button>
+      <button
+        type="button"
+        class="btn btn--danger-ghost btn--sm"
+        [disabled]="saving()"
+        (click)="rejectRequisition(row); $event.stopPropagation()"
+      >
+        Reject
+      </button>
+    }
+  </span>
+</ng-template>
+
+@if (tab() === 'orders') {
+  <app-master-panel
+    title="Purchase orders"
+    eyebrow="Procurement"
+    [showHeader]="false"
+    [columns]="orderColumns"
+    [page]="orders()"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="sort()"
+    [trackBy]="trackById"
+    [cellTemplates]="orderTemplates()"
+    [searchable]="false"
+    [canManage]="canCreate()"
+    createLabel="New purchase order"
+    emptyTitle="No purchase orders"
+    emptyMessage="Raise an order to commit to a supplier."
+    [editing]="creating() ? 'new' : null"
+    drawerTitle="New purchase order"
+    drawerSubtitle="An approved order is a commitment; the value below is an estimate."
+    drawerSize="lg"
+    formId="order-form"
+    [saving]="saving()"
+    saveLabel="Raise order"
+    (create)="startCreate()"
+    (rowClick)="viewOrder($event)"
+    (sortChange)="onSort($event)"
+    (pageChange)="onPage($event)"
+    (sizeChange)="onSizeChange($event)"
+    (retry)="load()"
+    (dismiss)="close()"
+  >
+    <div panelFilters class="panel-filters">
+      <label class="panel-filters__field">
+        <span class="field-label">Status</span>
+        <select class="select" (change)="onFilter('status', $event)">
+          <option value="">All statuses</option>
+          @for (status of orderStatuses; track status.value) {
+            <option [value]="status.value" [selected]="status.value === statusFilter()">
+              {{ status.label }}
+            </option>
+          }
+        </select>
+      </label>
+
+      <label class="panel-filters__field">
+        <span class="field-label">Supplier</span>
+        <select class="select" (change)="onFilter('supplier', $event)">
+          <option value="">All suppliers</option>
+          @for (supplier of suppliers(); track supplier.id) {
+            <option [value]="supplier.id" [selected]="supplier.id === supplierFilter()">
+              {{ supplier.name }}
+            </option>
+          }
+        </select>
+      </label>
+
+      @if (statusFilter() || supplierFilter()) {
+        <button type="button" class="btn btn--ghost btn--sm" (click)="clearFilters()">
+          Clear filters
+        </button>
+      }
+    </div>
+
+    <form [formGroup]="orderForm" (ngSubmit)="save()" id="order-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+
+      <div class="form-grid">
+        <app-form-field
+          label="Supplier"
+          [required]="true"
+          [control]="orderForm.controls.supplierId"
+          [submitted]="submitted()"
+          for="po-supplier"
+        >
+          <select id="po-supplier" class="select" formControlName="supplierId">
+            <option value="" disabled>Select a supplier</option>
+            @for (supplier of suppliers(); track supplier.id) {
+              <option [value]="supplier.id">{{ supplier.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Branch"
+          [required]="true"
+          [control]="orderForm.controls.branchId"
+          [submitted]="submitted()"
+          for="po-branch"
+        >
+          <select id="po-branch" class="select" formControlName="branchId">
+            @for (branch of branches(); track branch.id) {
+              <option [value]="branch.id">{{ branch.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Deliver to"
+          [required]="true"
+          [control]="orderForm.controls.deliveryLocationId"
+          [submitted]="submitted()"
+          for="po-location"
+        >
+          <select id="po-location" class="select" formControlName="deliveryLocationId">
+            <option value="" disabled>Select a location</option>
+            @for (location of locations(); track location.id) {
+              <option [value]="location.id">{{ location.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Expected delivery"
+          [control]="orderForm.controls.expectedDeliveryDate"
+          [submitted]="submitted()"
+          for="po-expected"
+        >
+          <input
+            id="po-expected"
+            class="input"
+            type="date"
+            formControlName="expectedDeliveryDate"
+          />
+        </app-form-field>
+
+        <app-form-field
+          label="Currency"
+          [control]="orderForm.controls.currency"
+          [submitted]="submitted()"
+          for="po-currency"
+        >
+          <input id="po-currency" class="input mono" maxlength="3" formControlName="currency" />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Notes"
+          [control]="orderForm.controls.notes"
+          [submitted]="submitted()"
+          for="po-notes"
+        >
+          <input id="po-notes" class="input" formControlName="notes" />
+        </app-form-field>
+      </div>
+
+      <ng-container *ngTemplateOutlet="lineEditor" />
+    </form>
+  </app-master-panel>
+} @else {
+  <app-master-panel
+    title="Requisitions"
+    eyebrow="Procurement"
+    [showHeader]="false"
+    [columns]="requisitionColumns"
+    [page]="requisitions()"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="sort()"
+    [trackBy]="trackById"
+    [cellTemplates]="requisitionTemplates()"
+    [searchable]="false"
+    [canManage]="canCreate()"
+    createLabel="New requisition"
+    emptyTitle="No requisitions"
+    emptyMessage="A branch asks for stock by raising a requisition."
+    [editing]="creating() ? 'new' : null"
+    drawerTitle="New requisition"
+    drawerSubtitle="A request for stock, which becomes an order once approved."
+    drawerSize="lg"
+    formId="requisition-form"
+    [saving]="saving()"
+    saveLabel="Raise requisition"
+    (create)="startCreate()"
+    (rowClick)="viewRequisition($event)"
+    (sortChange)="onSort($event)"
+    (pageChange)="onPage($event)"
+    (sizeChange)="onSizeChange($event)"
+    (retry)="load()"
+    (dismiss)="close()"
+  >
+    <div panelFilters class="panel-filters">
+      <label class="panel-filters__field">
+        <span class="field-label">Status</span>
+        <select class="select" (change)="onFilter('status', $event)">
+          <option value="">All statuses</option>
+          @for (status of requisitionStatuses; track status.value) {
+            <option [value]="status.value" [selected]="status.value === statusFilter()">
+              {{ status.label }}
+            </option>
+          }
+        </select>
+      </label>
+
+      @if (statusFilter()) {
+        <button type="button" class="btn btn--ghost btn--sm" (click)="clearFilters()">
+          Clear filters
+        </button>
+      }
+    </div>
+
+    <form [formGroup]="requisitionForm" (ngSubmit)="save()" id="requisition-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+
+      <div class="form-grid">
+        <app-form-field
+          label="Branch"
+          [required]="true"
+          [control]="requisitionForm.controls.branchId"
+          [submitted]="submitted()"
+          for="rq-branch"
+        >
+          <select id="rq-branch" class="select" formControlName="branchId">
+            @for (branch of branches(); track branch.id) {
+              <option [value]="branch.id">{{ branch.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Required by"
+          [control]="requisitionForm.controls.requiredBy"
+          [submitted]="submitted()"
+          for="rq-required"
+        >
+          <input id="rq-required" class="input" type="date" formControlName="requiredBy" />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Reason"
+          [control]="requisitionForm.controls.justification"
+          [submitted]="submitted()"
+          for="rq-reason"
+        >
+          <textarea
+            id="rq-reason"
+            class="textarea"
+            rows="2"
+            formControlName="justification"
+          ></textarea>
+        </app-form-field>
+      </div>
+
+      <ng-container *ngTemplateOutlet="lineEditor" />
+    </form>
+  </app-master-panel>
+}
+
+<!-- Both documents draft the same kind of line, so the editor is shared. -->
+<ng-template #lineEditor>
+  <div class="form-section">
+    <header class="section-head">
+      <h3 class="form-section__title">Lines</h3>
+      <button type="button" class="btn btn--ghost btn--sm" (click)="addLine()">Add line</button>
+    </header>
+
+    @for (line of lines(); track trackLine(line)) {
+      <div class="draft-line">
+        <label class="draft-line__field draft-line__field--wide">
+          <span class="field-label">Product</span>
+          <select class="select" [formControl]="line.productId" (change)="onLineProduct(line)">
+            <option value="" disabled>Select a product</option>
+            @for (product of products(); track product.id) {
+              <option [value]="product.id">{{ product.sku }} — {{ product.name }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="draft-line__field">
+          <span class="field-label">Qty</span>
+          <input class="input numeric" type="number" min="1" [formControl]="line.quantity" />
+        </label>
+
+        <label class="draft-line__field">
+          <span class="field-label">Est. weight (g)</span>
+          <input
+            class="input numeric"
+            type="number"
+            step="0.001"
+            min="0"
+            [formControl]="line.estimatedWeight"
+          />
+        </label>
+
+        @if (tab() === 'orders') {
+          <label class="draft-line__field">
+            <span class="field-label">Rate / g</span>
+            <input
+              class="input numeric"
+              type="number"
+              step="0.01"
+              min="0"
+              [formControl]="line.ratePerGram"
+            />
+          </label>
+
+          <label class="draft-line__field">
+            <span class="field-label">Making</span>
+            <input
+              class="input numeric"
+              type="number"
+              step="0.01"
+              min="0"
+              [formControl]="line.makingChargePerUnit"
+            />
+          </label>
+        }
+
+        <button
+          type="button"
+          class="btn btn--danger-ghost btn--sm draft-line__remove"
+          [disabled]="lines().length === 1"
+          (click)="removeLine(line.key)"
+        >
+          Remove
+        </button>
+      </div>
+    }
+
+    @if (tab() === 'orders') {
+      <p class="draft-total">
+        Estimated commitment
+        <strong class="numeric">{{ draftTotal() | number: '1.0-2' }}</strong>
+      </p>
+    }
+  </div>
+</ng-template>
+
+@if (viewingOrder(); as order) {
+  <app-drawer
+    eyebrow="Procurement"
+    [title]="order.orderNumber"
+    [subtitle]="supplierName(order.supplierId)"
+    size="lg"
+    (dismiss)="close()"
+  >
+    <dl class="detail-facts">
+      <div>
+        <dt>Status</dt>
+        <dd><app-status-badge [status]="order.status" /></dd>
+      </div>
+      <div>
+        <dt>Branch</dt>
+        <dd>{{ branchName(order.branchId) }}</dd>
+      </div>
+      <div>
+        <dt>Raised</dt>
+        <dd>{{ order.orderDate }}</dd>
+      </div>
+      <div>
+        <dt>Expected</dt>
+        <dd>{{ order.expectedDeliveryDate ?? '—' }}</dd>
+      </div>
+      <div>
+        <dt>Value</dt>
+        <dd class="numeric">{{ order.estimatedTotal | number: '1.0-2' }} {{ order.currency }}</dd>
+      </div>
+      @if (order.approvedAt) {
+        <div>
+          <dt>Approved</dt>
+          <dd>{{ order.approvedAt | relativeTime }} · {{ order.approvedBy }}</dd>
+        </div>
+      }
+    </dl>
+
+    @if (order.rejectionReason) {
+      <p class="form-error">{{ order.rejectionReason }}</p>
+    }
+
+    <div class="form-section">
+      <h3 class="form-section__title">Lines</h3>
+      <ul class="record-list">
+        @for (line of order.lines; track line.id) {
+          <li class="record">
+            <div>
+              <p class="record__title">{{ productName(line.productId) }}</p>
+              <p class="record__detail">
+                {{ line.estimatedWeight ?? '—' }} g est. · rate {{ line.ratePerGram ?? '—' }} ·
+                making {{ line.makingChargePerUnit ?? '—' }}
+              </p>
+            </div>
+            <div class="record__side">
+              <p class="record__detail numeric">
+                {{ line.receivedQuantity }} / {{ line.orderedQuantity }} received
+              </p>
+              <p class="record__detail numeric">{{ line.lineTotal | number: '1.0-2' }}</p>
+            </div>
+          </li>
+        }
+      </ul>
+    </div>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Close</button>
+      @if (order.status === 'PENDING_APPROVAL' && canApprove()) {
+        <button
+          type="button"
+          class="btn btn--danger-ghost"
+          [disabled]="saving()"
+          (click)="rejectOrder(order)"
+        >
+          Reject
+        </button>
+        <button
+          type="button"
+          class="btn btn--primary"
+          [disabled]="saving()"
+          (click)="approveOrder(order)"
+        >
+          @if (saving()) {
+            <app-spinner [size]="14" />
+          }
+          Approve
+        </button>
+      }
+      @if (order.status === 'APPROVED' && canApprove()) {
+        <button
+          type="button"
+          class="btn btn--danger-ghost"
+          [disabled]="saving()"
+          (click)="cancelOrder(order)"
+        >
+          Cancel order
+        </button>
+      }
+    </ng-container>
+  </app-drawer>
+}
+
+@if (viewingRequisition(); as requisition) {
+  <app-drawer
+    eyebrow="Procurement"
+    [title]="requisition.referenceNumber"
+    [subtitle]="branchName(requisition.branchId)"
+    size="md"
+    (dismiss)="close()"
+  >
+    <dl class="detail-facts">
+      <div>
+        <dt>Status</dt>
+        <dd><app-status-badge [status]="requisition.status" /></dd>
+      </div>
+      <div>
+        <dt>Required by</dt>
+        <dd>{{ requisition.requiredBy ?? '—' }}</dd>
+      </div>
+      <div>
+        <dt>Raised</dt>
+        <dd>{{ requisition.createdAt | relativeTime }} · {{ requisition.createdBy }}</dd>
+      </div>
+      @if (requisition.approvedAt) {
+        <div>
+          <dt>Approved</dt>
+          <dd>{{ requisition.approvedAt | relativeTime }} · {{ requisition.approvedBy }}</dd>
+        </div>
+      }
+    </dl>
+
+    @if (requisition.justification) {
+      <p class="muted detail-note">{{ requisition.justification }}</p>
+    }
+    @if (requisition.rejectionReason) {
+      <p class="form-error">{{ requisition.rejectionReason }}</p>
+    }
+
+    <div class="form-section">
+      <h3 class="form-section__title">Lines</h3>
+      <ul class="record-list">
+        @for (line of requisition.lines; track line.id) {
+          <li class="record">
+            <div>
+              <p class="record__title">{{ productName(line.productId) }}</p>
+              @if (line.notes) {
+                <p class="record__detail">{{ line.notes }}</p>
+              }
+            </div>
+            <div class="record__side">
+              <p class="record__detail numeric">{{ line.quantity }} piece(s)</p>
+              <p class="record__detail numeric">{{ line.estimatedWeight ?? '—' }} g</p>
+            </div>
+          </li>
+        }
+      </ul>
+    </div>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Close</button>
+      @if (requisition.status === 'PENDING_APPROVAL' && canApprove()) {
+        <button
+          type="button"
+          class="btn btn--danger-ghost"
+          [disabled]="saving()"
+          (click)="rejectRequisition(requisition)"
+        >
+          Reject
+        </button>
+        <button
+          type="button"
+          class="btn btn--primary"
+          [disabled]="saving()"
+          (click)="approveRequisition(requisition)"
+        >
+          @if (saving()) {
+            <app-spinner [size]="14" />
+          }
+          Approve
+        </button>
+      }
+    </ng-container>
+  </app-drawer>
+}

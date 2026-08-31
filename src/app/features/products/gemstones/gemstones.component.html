@@ -1,0 +1,257 @@
+<app-page-header
+  title="Gemstones"
+  eyebrow="Products"
+  description="Gemstones, diamonds and the lab certificates that grade them."
+/>
+
+<nav class="tabs" role="tablist" aria-label="Gemstone sections">
+  @for (entry of tabs; track entry.id) {
+    <button
+      type="button"
+      role="tab"
+      class="tabs__tab"
+      [class.tabs__tab--active]="tab() === entry.id"
+      [attr.aria-selected]="tab() === entry.id"
+      (click)="selectTab(entry.id)"
+    >
+      {{ entry.label }}
+    </button>
+  }
+</nav>
+
+<ng-template #gemKindCell let-row>
+  <span class="chip-row">
+    @if (row.diamond) {
+      <span class="chip">Diamond</span>
+    }
+    @if (row.precious) {
+      <span class="chip">Precious</span>
+    }
+    @if (!row.diamond && !row.precious) {
+      <span class="muted">Semi-precious</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #gemStatusCell let-row>
+  <app-status-badge [status]="row.active ? 'ACTIVE' : 'INACTIVE'" />
+</ng-template>
+
+<ng-template #certFileCell let-row>
+  @if (row.storageKey) {
+    <button
+      type="button"
+      class="btn btn--ghost btn--sm"
+      (click)="downloadCertificate(row); $event.stopPropagation()"
+    >
+      Download
+    </button>
+  } @else {
+    <span class="muted">No document</span>
+  }
+</ng-template>
+
+@if (tab() === 'gemstones') {
+  <app-master-panel
+    title="Gemstones & diamonds"
+    eyebrow="Products"
+    [showHeader]="false"
+    [columns]="gemstoneColumns"
+    [page]="gemstonePage()"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="sort()"
+    [trackBy]="trackById"
+    [cellTemplates]="gemTemplates()"
+    [canManage]="canManage()"
+    [editable]="editable()"
+    createLabel="New gemstone"
+    searchPlaceholder="Search gemstones…"
+    emptyTitle="No gemstones"
+    emptyMessage="Create diamond, ruby, emerald or any other stone you set."
+    [editing]="editing()"
+    [drawerTitle]="editing() === 'new' ? 'New gemstone' : 'Edit gemstone'"
+    drawerSubtitle="Per-stone grading is recorded against the item the stone is set into."
+    formId="gemstone-form"
+    [saving]="saving()"
+    [saveLabel]="editing() === 'new' ? 'Create gemstone' : 'Save changes'"
+    (create)="startCreate()"
+    (rowClick)="startEdit($event)"
+    (search)="onSearch($event)"
+    (sortChange)="onSort($event)"
+    (pageChange)="page.set($event)"
+    (sizeChange)="onSizeChange($event)"
+    (retry)="loadGemstones()"
+    (dismiss)="close()"
+  >
+    <form [formGroup]="gemstoneForm" (ngSubmit)="save()" id="gemstone-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+      <div class="form-grid">
+        <app-form-field
+          label="Code"
+          [required]="true"
+          [control]="gemstoneForm.controls.code"
+          [submitted]="submitted()"
+          for="gem-code"
+        >
+          <input id="gem-code" class="input mono" formControlName="code" autocomplete="off" />
+        </app-form-field>
+
+        <app-form-field
+          label="Name"
+          [required]="true"
+          [control]="gemstoneForm.controls.name"
+          [submitted]="submitted()"
+          for="gem-name"
+        >
+          <input id="gem-name" class="input" formControlName="name" />
+        </app-form-field>
+
+        <div>
+          <label class="checkbox">
+            <input type="checkbox" formControlName="diamond" />
+            <span>This stone is a diamond</span>
+          </label>
+        </div>
+
+        <div>
+          <label class="checkbox">
+            <input type="checkbox" formControlName="precious" />
+            <span>Precious stone</span>
+          </label>
+        </div>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Description"
+          [control]="gemstoneForm.controls.description"
+          [submitted]="submitted()"
+          for="gem-desc"
+        >
+          <input id="gem-desc" class="input" formControlName="description" />
+        </app-form-field>
+      </div>
+    </form>
+  </app-master-panel>
+} @else {
+  <app-master-panel
+    title="Certificates"
+    eyebrow="Products"
+    [showHeader]="false"
+    [columns]="certificateColumns"
+    [page]="certificates()"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="null"
+    [trackBy]="trackById"
+    [cellTemplates]="certTemplates()"
+    [canManage]="canManage()"
+    [editable]="editable()"
+    createLabel="Record certificate"
+    searchPlaceholder="Search certificate number or lab…"
+    emptyTitle="No certificates"
+    emptyMessage="Record a lab certificate and attach its document."
+    [editing]="editing()"
+    [drawerTitle]="editing() === 'new' ? 'Record certificate' : 'Certificate'"
+    drawerSubtitle="Certificates are recorded once and cannot be edited afterwards."
+    formId="certificate-form"
+    [saving]="saving()"
+    saveLabel="Record certificate"
+    (create)="startCreate()"
+    (rowClick)="startEdit($event)"
+    (search)="onSearch($event)"
+    (pageChange)="onPage($event)"
+    (sizeChange)="onSizeChange($event)"
+    (retry)="loadCertificates()"
+    (dismiss)="close()"
+  >
+    <form [formGroup]="certificateForm" (ngSubmit)="save()" id="certificate-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+      <div class="form-grid">
+        <app-form-field
+          label="Certificate number"
+          [required]="true"
+          [control]="certificateForm.controls.certificateNumber"
+          [submitted]="submitted()"
+          for="cert-number"
+        >
+          <input
+            id="cert-number"
+            class="input mono"
+            formControlName="certificateNumber"
+            autocomplete="off"
+          />
+        </app-form-field>
+
+        <app-form-field
+          label="Issuing lab"
+          [required]="true"
+          hint="e.g. GIA, IGI, HRD."
+          [control]="certificateForm.controls.issuingLab"
+          [submitted]="submitted()"
+          for="cert-lab"
+        >
+          <input id="cert-lab" class="input" formControlName="issuingLab" />
+        </app-form-field>
+
+        <app-form-field
+          label="Issue date"
+          [control]="certificateForm.controls.issueDate"
+          [submitted]="submitted()"
+          for="cert-date"
+        >
+          <input id="cert-date" class="input" type="date" formControlName="issueDate" />
+        </app-form-field>
+
+        <app-form-field
+          label="Verification URL"
+          [control]="certificateForm.controls.verificationUrl"
+          [submitted]="submitted()"
+          for="cert-url"
+        >
+          <input id="cert-url" class="input" formControlName="verificationUrl" />
+        </app-form-field>
+
+        <div class="form-grid__full">
+          <span class="field-label">Certificate document</span>
+          @if (editing() === 'new' && canUpload()) {
+            <div class="cert-upload">
+              <input
+                id="cert-file"
+                class="input"
+                type="file"
+                accept="application/pdf,image/*"
+                [disabled]="uploading()"
+                (change)="onCertificateFile($event)"
+              />
+              @if (uploading()) {
+                <span class="cert-upload__status"> <app-spinner [size]="14" /> Uploading… </span>
+              }
+            </div>
+          }
+          @if (uploadedName(); as name) {
+            <p class="field-hint">Attached: {{ name }}</p>
+          } @else if (certificateForm.controls.storageKey.value) {
+            <p class="field-hint mono">{{ certificateForm.controls.storageKey.value }}</p>
+          } @else {
+            <p class="field-hint">Optional. The file is stored separately and referenced by key.</p>
+          }
+        </div>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Notes"
+          [control]="certificateForm.controls.notes"
+          [submitted]="submitted()"
+          for="cert-notes"
+        >
+          <input id="cert-notes" class="input" formControlName="notes" />
+        </app-form-field>
+      </div>
+    </form>
+  </app-master-panel>
+}

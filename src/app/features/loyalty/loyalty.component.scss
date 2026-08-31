@@ -1,0 +1,72 @@
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+
+  .form-section__title {
+    margin-bottom: 0;
+  }
+}
+
+.tier-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  flex-wrap: wrap;
+
+  & + & {
+    margin-top: var(--space-2);
+  }
+}
+
+.tier-row__field {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 90px;
+  flex: 1 1 90px;
+}
+
+.member-picker {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.member-picker__field {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 280px;
+}
+
+.member-picker__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.enrol-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.points-credit {
+  color: var(--success-text);
+}
+.points-debit {
+  color: var(--danger-text);
+}
+
+.rate-note {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+}

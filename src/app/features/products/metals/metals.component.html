@@ -1,0 +1,476 @@
+<app-page-header
+  title="Metals & rates"
+  eyebrow="Products"
+  description="Metals, their purities, and the rate board that prices every piece."
+>
+  @if (canPublish() && tab() === 'rates') {
+    <button
+      type="button"
+      class="btn btn--primary"
+      [disabled]="metals().length === 0"
+      (click)="startPublish()"
+    >
+      Publish rate
+    </button>
+  }
+</app-page-header>
+
+<nav class="tabs" role="tablist" aria-label="Metal sections">
+  @for (entry of tabs; track entry.id) {
+    <button
+      type="button"
+      role="tab"
+      class="tabs__tab"
+      [class.tabs__tab--active]="tab() === entry.id"
+      [attr.aria-selected]="tab() === entry.id"
+      (click)="selectTab(entry.id)"
+    >
+      {{ entry.label }}
+    </button>
+  }
+</nav>
+
+<ng-template #metalStatusCell let-row>
+  <app-status-badge [status]="row.active ? 'ACTIVE' : 'INACTIVE'" />
+</ng-template>
+
+<ng-template #purityStatusCell let-row>
+  <app-status-badge [status]="row.active ? 'ACTIVE' : 'INACTIVE'" />
+</ng-template>
+
+<ng-template #finenessCell let-row>
+  <span class="numeric">{{ row.fineness | number: '1.4-4' }}</span>
+  <span class="muted"> · {{ row.fineness * 100 | number: '1.1-2' }}%</span>
+</ng-template>
+
+<ng-template #rateTypeCell let-row>
+  <app-status-badge
+    [label]="row.rateType | titlecase"
+    [tone]="row.rateType === 'SELLING' ? 'accent' : row.rateType === 'BUYING' ? 'info' : 'neutral'"
+    [dot]="false"
+  />
+</ng-template>
+
+<ng-template #publishedCell let-row>
+  <span class="cell-stack">
+    <span>{{ row.publishedAt | relativeTime }}</span>
+    @if (row.publishedBy) {
+      <span class="cell-stack__secondary">{{ row.publishedBy }}</span>
+    }
+  </span>
+</ng-template>
+
+@switch (tab()) {
+  @case ('rates') {
+    <app-master-panel
+      title="Rate board"
+      eyebrow="Products"
+      [showHeader]="false"
+      [columns]="rateColumns"
+      [page]="rates()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="sort()"
+      [trackBy]="trackById"
+      [cellTemplates]="rateTemplates()"
+      [searchable]="false"
+      [canManage]="false"
+      emptyTitle="No rates published"
+      emptyMessage="Publish a rate for a metal and purity to start the board."
+      [editing]="null"
+      formId="rate-form"
+      (sortChange)="onSort($event)"
+      (pageChange)="onPage($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="loadRates()"
+    >
+      <div panelFilters class="panel-filters">
+        <label class="panel-filters__field">
+          <span class="field-label">Metal</span>
+          <select class="select" (change)="onRateMetalFilter($event)">
+            <option value="">All metals</option>
+            @for (metal of metals(); track metal.id) {
+              <option [value]="metal.id" [selected]="metal.id === rateMetalId()">
+                {{ metal.name }}
+              </option>
+            }
+          </select>
+        </label>
+
+        <label class="panel-filters__field">
+          <span class="field-label">Purity</span>
+          <select class="select" [disabled]="!rateMetalId()" (change)="onRatePurityFilter($event)">
+            <option value="">All purities</option>
+            @for (purity of filterPurities(); track purity.id) {
+              <option [value]="purity.id" [selected]="purity.id === ratePurityId()">
+                {{ purity.name }}
+              </option>
+            }
+          </select>
+        </label>
+
+        <label class="panel-filters__field">
+          <span class="field-label">Side</span>
+          <select class="select" (change)="onRateTypeFilter($event)">
+            <option value="">All sides</option>
+            @for (type of rateTypes; track type.value) {
+              <option [value]="type.value" [selected]="type.value === rateTypeFilter()">
+                {{ type.label }}
+              </option>
+            }
+          </select>
+        </label>
+
+        @if (activeFilterCount() > 0) {
+          <button type="button" class="btn btn--ghost btn--sm" (click)="clearRateFilters()">
+            Clear filters
+          </button>
+        }
+      </div>
+    </app-master-panel>
+
+    <p class="rate-note muted">
+      Publishing again for the same metal, purity, side and day replaces that day's rate; the
+      previous figure is kept in the audit trail. Earlier days are never altered, so a price already
+      captured on a sale cannot change.
+    </p>
+  }
+
+  @case ('metals') {
+    <app-master-panel
+      title="Metals"
+      eyebrow="Products"
+      [showHeader]="false"
+      [columns]="metalColumns"
+      [page]="metalPage()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="sort()"
+      [trackBy]="trackById"
+      [cellTemplates]="metalTemplates()"
+      [canManage]="canManage()"
+      createLabel="New metal"
+      searchPlaceholder="Search metals…"
+      emptyTitle="No metals"
+      emptyMessage="Create gold, silver or platinum to begin."
+      [editing]="editing()"
+      [drawerTitle]="editing() === 'new' ? 'New metal' : 'Edit metal'"
+      drawerSubtitle="A metal owns the purities beneath it."
+      formId="metal-form"
+      [saving]="saving()"
+      [saveLabel]="editing() === 'new' ? 'Create metal' : 'Save changes'"
+      (create)="startCreate()"
+      (rowClick)="startEdit($event)"
+      (search)="onSearch($event)"
+      (sortChange)="onSort($event)"
+      (pageChange)="page.set($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="loadMetals()"
+      (dismiss)="close()"
+    >
+      <form [formGroup]="metalForm" (ngSubmit)="save()" id="metal-form">
+        @if (formError(); as message) {
+          <p class="form-error">{{ message }}</p>
+        }
+        <div class="form-grid">
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="metalForm.controls.code"
+            [submitted]="submitted()"
+            for="metal-code"
+          >
+            <input id="metal-code" class="input mono" formControlName="code" autocomplete="off" />
+          </app-form-field>
+
+          <app-form-field
+            label="Name"
+            [required]="true"
+            [control]="metalForm.controls.name"
+            [submitted]="submitted()"
+            for="metal-name"
+          >
+            <input id="metal-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <app-form-field
+            label="Symbol"
+            hint="e.g. Au, Ag, Pt."
+            [control]="metalForm.controls.symbol"
+            [submitted]="submitted()"
+            for="metal-symbol"
+          >
+            <input id="metal-symbol" class="input mono" formControlName="symbol" />
+          </app-form-field>
+
+          <app-form-field
+            label="Weight unit"
+            hint="The unit rates are quoted in."
+            [control]="metalForm.controls.weightUnit"
+            [submitted]="submitted()"
+            for="metal-unit"
+          >
+            <input id="metal-unit" class="input mono" formControlName="weightUnit" />
+          </app-form-field>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Description"
+            [control]="metalForm.controls.description"
+            [submitted]="submitted()"
+            for="metal-desc"
+          >
+            <input id="metal-desc" class="input" formControlName="description" />
+          </app-form-field>
+        </div>
+      </form>
+    </app-master-panel>
+  }
+
+  @case ('purities') {
+    <app-master-panel
+      title="Purities"
+      eyebrow="Products"
+      [showHeader]="false"
+      [columns]="purityColumns"
+      [page]="purityPage()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="sort()"
+      [trackBy]="trackById"
+      [cellTemplates]="purityTemplates()"
+      [canManage]="canManage()"
+      [createDisabled]="!purityMetalId()"
+      createLabel="New purity"
+      searchPlaceholder="Search purities…"
+      emptyTitle="No purities"
+      emptyMessage="Add 22K, 24K or another purity to this metal."
+      [editing]="editing()"
+      [drawerTitle]="editing() === 'new' ? 'New purity' : 'Edit purity'"
+      drawerSubtitle="Fineness is the fraction of pure metal — 22K gold is 0.9167."
+      formId="purity-form"
+      [saving]="saving()"
+      [saveLabel]="editing() === 'new' ? 'Create purity' : 'Save changes'"
+      (create)="startCreate()"
+      (rowClick)="startEdit($event)"
+      (search)="onSearch($event)"
+      (sortChange)="onSort($event)"
+      (pageChange)="page.set($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="loadPurities()"
+      (dismiss)="close()"
+    >
+      <span panelToolbar>
+        <label class="visually-hidden" for="purity-metal">Metal</label>
+        <select id="purity-metal" class="select" (change)="onPurityMetalChange($event)">
+          @for (metal of metals(); track metal.id) {
+            <option [value]="metal.id" [selected]="metal.id === purityMetalId()">
+              {{ metal.name }}
+            </option>
+          }
+        </select>
+      </span>
+
+      <form [formGroup]="purityForm" (ngSubmit)="save()" id="purity-form">
+        @if (formError(); as message) {
+          <p class="form-error">{{ message }}</p>
+        }
+        <div class="form-grid">
+          <app-form-field
+            class="form-grid__full"
+            label="Metal"
+            [required]="true"
+            [hint]="editing() === 'new' ? '' : 'A purity cannot be moved to another metal.'"
+            [control]="purityForm.controls.metalId"
+            [submitted]="submitted()"
+            for="purity-metal-field"
+          >
+            <select id="purity-metal-field" class="select" formControlName="metalId">
+              <option value="" disabled>Select a metal</option>
+              @for (metal of metals(); track metal.id) {
+                <option [value]="metal.id">{{ metal.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="purityForm.controls.code"
+            [submitted]="submitted()"
+            for="purity-code"
+          >
+            <input id="purity-code" class="input mono" formControlName="code" autocomplete="off" />
+          </app-form-field>
+
+          <app-form-field
+            label="Name"
+            [required]="true"
+            [control]="purityForm.controls.name"
+            [submitted]="submitted()"
+            for="purity-name"
+          >
+            <input id="purity-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <app-form-field
+            label="Fineness"
+            [required]="true"
+            hint="Between 0 and 1."
+            [control]="purityForm.controls.fineness"
+            [submitted]="submitted()"
+            for="purity-fineness"
+          >
+            <input
+              id="purity-fineness"
+              class="input numeric"
+              type="number"
+              step="0.0001"
+              min="0"
+              max="1"
+              formControlName="fineness"
+            />
+          </app-form-field>
+
+          <app-form-field
+            label="Display order"
+            [control]="purityForm.controls.displayOrder"
+            [submitted]="submitted()"
+            for="purity-order"
+          >
+            <input
+              id="purity-order"
+              class="input numeric"
+              type="number"
+              formControlName="displayOrder"
+            />
+          </app-form-field>
+        </div>
+      </form>
+    </app-master-panel>
+  }
+}
+
+@if (publishing()) {
+  <app-drawer
+    eyebrow="Products"
+    title="Publish rate"
+    subtitle="Republishing the same day replaces that day's rate. Earlier days are never changed."
+    size="md"
+    [closeOnBackdrop]="false"
+    (dismiss)="cancelPublish()"
+  >
+    <form [formGroup]="rateForm" (ngSubmit)="publish()" id="rate-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+      <div class="form-grid">
+        <app-form-field
+          label="Metal"
+          [required]="true"
+          [control]="rateForm.controls.metalId"
+          [submitted]="submitted()"
+          for="rate-metal"
+        >
+          <select
+            id="rate-metal"
+            class="select"
+            formControlName="metalId"
+            (change)="onPublishMetalChange($event)"
+          >
+            <option value="" disabled>Select a metal</option>
+            @for (metal of metals(); track metal.id) {
+              <option [value]="metal.id">{{ metal.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Purity"
+          [required]="true"
+          [control]="rateForm.controls.purityId"
+          [submitted]="submitted()"
+          for="rate-purity"
+        >
+          <select id="rate-purity" class="select" formControlName="purityId">
+            <option value="" disabled>Select a purity</option>
+            @for (purity of publishPurities(); track purity.id) {
+              <option [value]="purity.id">{{ purity.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Side"
+          [required]="true"
+          [control]="rateForm.controls.rateType"
+          [submitted]="submitted()"
+          for="rate-type"
+        >
+          <select id="rate-type" class="select" formControlName="rateType">
+            @for (type of rateTypes; track type.value) {
+              <option [value]="type.value">{{ type.label }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Effective from"
+          [required]="true"
+          hint="At most seven days ahead."
+          [control]="rateForm.controls.effectiveDate"
+          [submitted]="submitted()"
+          for="rate-date"
+        >
+          <input id="rate-date" class="input" type="date" formControlName="effectiveDate" />
+        </app-form-field>
+
+        <app-form-field
+          label="Rate per unit"
+          [required]="true"
+          [control]="rateForm.controls.ratePerUnit"
+          [submitted]="submitted()"
+          for="rate-value"
+        >
+          <input
+            id="rate-value"
+            class="input numeric"
+            type="number"
+            step="0.01"
+            min="0"
+            formControlName="ratePerUnit"
+          />
+        </app-form-field>
+
+        <app-form-field
+          label="Currency"
+          [control]="rateForm.controls.currency"
+          [submitted]="submitted()"
+          for="rate-currency"
+        >
+          <input id="rate-currency" class="input mono" maxlength="3" formControlName="currency" />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Notes"
+          [control]="rateForm.controls.notes"
+          [submitted]="submitted()"
+          for="rate-notes"
+        >
+          <input id="rate-notes" class="input" formControlName="notes" />
+        </app-form-field>
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="cancelPublish()">Cancel</button>
+      <button type="submit" form="rate-form" class="btn btn--primary" [disabled]="saving()">
+        @if (saving()) {
+          <app-spinner [size]="14" />
+        }
+        Publish rate
+      </button>
+    </ng-container>
+  </app-drawer>
+}

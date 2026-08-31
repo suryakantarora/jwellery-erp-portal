@@ -1,0 +1,379 @@
+@if (loading() && !product()) {
+  <app-loading-state label="Loading product…" />
+} @else if (error(); as failure) {
+  <app-error-state [error]="failure" (retry)="reload()" />
+} @else if (product(); as item) {
+  <app-page-header
+    [title]="item.name"
+    eyebrow="Product catalogue"
+    [description]="item.description ?? ''"
+  >
+    <a class="btn btn--ghost" routerLink="/products">Back to catalogue</a>
+    @if (canUpdate()) {
+      <button type="button" class="btn btn--secondary" (click)="startEdit()">Edit</button>
+      @if (item.status === 'ACTIVE') {
+        <button type="button" class="btn btn--danger-ghost" (click)="deactivate()">
+          Deactivate
+        </button>
+      }
+    }
+  </app-page-header>
+
+  <div class="detail-grid">
+    <section class="card product-visual">
+      <div class="product-visual__frame" aria-hidden="true">
+        <span class="product-visual__monogram">{{ monogram() }}</span>
+        <app-icon name="gem" [size]="28" />
+      </div>
+      <p class="product-visual__caption muted">
+        No photograph. The platform stores product images against the product record, but the
+        backend does not yet expose an endpoint for them, so none can be uploaded here.
+      </p>
+
+      <dl class="product-visual__facts">
+        <div>
+          <dt>SKU</dt>
+          <dd class="mono">{{ item.sku }}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd><app-status-badge [status]="item.status" /></dd>
+        </div>
+      </dl>
+    </section>
+
+    <div>
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Identity</h2>
+        <dl class="detail-facts">
+          <div>
+            <dt>Design code</dt>
+            <dd class="mono">{{ design()?.designCode ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Design</dt>
+            <dd>{{ design()?.name ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Category</dt>
+            <dd>{{ categoryName() }}</dd>
+          </div>
+          <div>
+            <dt>Product type</dt>
+            <dd>{{ typeName() }}</dd>
+          </div>
+          <div>
+            <dt>Collection</dt>
+            <dd>{{ collectionName() }}</dd>
+          </div>
+          <div>
+            <dt>Brand</dt>
+            <dd>{{ brandName() }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Metal and weight</h2>
+        <dl class="detail-facts">
+          <div>
+            <dt>Default metal</dt>
+            <dd>{{ metalName() }}</dd>
+          </div>
+          <div>
+            <dt>Default purity</dt>
+            <dd>{{ purityName() }}</dd>
+          </div>
+          <div>
+            <dt>Nominal gross weight</dt>
+            <dd class="numeric">
+              {{ item.nominalGrossWeight ? item.nominalGrossWeight + ' g' : '—' }}
+            </dd>
+          </div>
+          <div>
+            <dt>HSN code</dt>
+            <dd class="mono">{{ item.hsnCode ?? '—' }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Pricing defaults</h2>
+        <dl class="detail-facts">
+          <div>
+            <dt>Making charge</dt>
+            <dd>{{ chargeLabel(item.defaultMakingChargeType) }}</dd>
+          </div>
+          <div>
+            <dt>Making charge value</dt>
+            <dd class="numeric">{{ item.defaultMakingChargeValue ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Wastage</dt>
+            <dd class="numeric">
+              {{
+                item.defaultWastagePercentage !== null &&
+                item.defaultWastagePercentage !== undefined
+                  ? item.defaultWastagePercentage + ' %'
+                  : '—'
+              }}
+            </dd>
+          </div>
+        </dl>
+        <p class="muted detail-note">
+          These are defaults. The pricing engine can override them per branch or promotion.
+        </p>
+      </section>
+
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Sizes offered</h2>
+        @if (sizes().length === 0) {
+          <p class="muted">This product type does not carry sizes.</p>
+        } @else {
+          <div class="chip-row">
+            @for (size of sizes(); track size.id) {
+              <span class="chip">{{ size.label }}</span>
+            }
+          </div>
+        }
+      </section>
+    </div>
+  </div>
+}
+
+@if (editing()) {
+  <app-drawer
+    eyebrow="Product catalogue"
+    title="Edit product"
+    [subtitle]="product()?.sku ?? ''"
+    size="lg"
+    [closeOnBackdrop]="false"
+    (dismiss)="close()"
+  >
+    <form [formGroup]="form" (ngSubmit)="save()" id="product-edit-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+
+      <div class="form-section">
+        <div class="form-grid">
+          <app-form-field
+            label="SKU"
+            [required]="true"
+            [control]="form.controls.sku"
+            [submitted]="submitted()"
+            for="edit-sku"
+          >
+            <input id="edit-sku" class="input mono" formControlName="sku" />
+          </app-form-field>
+
+          <app-form-field
+            label="Product type"
+            [required]="true"
+            [control]="form.controls.productTypeId"
+            [submitted]="submitted()"
+            for="edit-type"
+          >
+            <select id="edit-type" class="select" formControlName="productTypeId">
+              @for (option of types(); track option.id) {
+                <option [value]="option.id">{{ option.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Name"
+            [required]="true"
+            [control]="form.controls.name"
+            [submitted]="submitted()"
+            for="edit-name"
+          >
+            <input id="edit-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <app-form-field
+            label="Category"
+            [control]="form.controls.categoryId"
+            [submitted]="submitted()"
+            for="edit-category"
+          >
+            <select id="edit-category" class="select" formControlName="categoryId">
+              <option value="">No category</option>
+              @for (option of categories(); track option.id) {
+                <option [value]="option.id">{{ option.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="Brand"
+            [control]="form.controls.brandId"
+            [submitted]="submitted()"
+            for="edit-brand"
+          >
+            <select id="edit-brand" class="select" formControlName="brandId">
+              <option value="">No brand</option>
+              @for (option of brands(); track option.id) {
+                <option [value]="option.id">{{ option.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="Collection"
+            [control]="form.controls.collectionId"
+            [submitted]="submitted()"
+            for="edit-collection"
+          >
+            <select id="edit-collection" class="select" formControlName="collectionId">
+              <option value="">No collection</option>
+              @for (option of collections(); track option.id) {
+                <option [value]="option.id">{{ option.name }}</option>
+              }
+            </select>
+          </app-form-field>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3 class="form-section__title">Metal and weight</h3>
+        <div class="form-grid">
+          <app-form-field
+            label="Default metal"
+            [control]="form.controls.defaultMetalId"
+            [submitted]="submitted()"
+            for="edit-metal"
+          >
+            <select
+              id="edit-metal"
+              class="select"
+              formControlName="defaultMetalId"
+              (change)="onMetalChange($event)"
+            >
+              <option value="">No metal</option>
+              @for (metal of metals(); track metal.id) {
+                <option [value]="metal.id">{{ metal.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="Default purity"
+            [control]="form.controls.defaultPurityId"
+            [submitted]="submitted()"
+            for="edit-purity"
+          >
+            <select id="edit-purity" class="select" formControlName="defaultPurityId">
+              <option value="">No purity</option>
+              @for (purity of purities(); track purity.id) {
+                <option [value]="purity.id">{{ purity.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="Nominal gross weight (g)"
+            [control]="form.controls.nominalGrossWeight"
+            [submitted]="submitted()"
+            for="edit-weight"
+          >
+            <input
+              id="edit-weight"
+              class="input numeric"
+              type="number"
+              step="0.001"
+              min="0"
+              formControlName="nominalGrossWeight"
+            />
+          </app-form-field>
+
+          <app-form-field
+            label="HSN code"
+            [control]="form.controls.hsnCode"
+            [submitted]="submitted()"
+            for="edit-hsn"
+          >
+            <input id="edit-hsn" class="input mono" formControlName="hsnCode" />
+          </app-form-field>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3 class="form-section__title">Pricing defaults</h3>
+        <div class="form-grid">
+          <app-form-field
+            label="Making charge type"
+            [control]="form.controls.defaultMakingChargeType"
+            [submitted]="submitted()"
+            for="edit-mc-type"
+          >
+            <select id="edit-mc-type" class="select" formControlName="defaultMakingChargeType">
+              <option value="">Not set</option>
+              @for (option of makingChargeTypes; track option.value) {
+                <option [value]="option.value">{{ option.label }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="Making charge value"
+            [control]="form.controls.defaultMakingChargeValue"
+            [submitted]="submitted()"
+            for="edit-mc-value"
+          >
+            <input
+              id="edit-mc-value"
+              class="input numeric"
+              type="number"
+              step="0.01"
+              min="0"
+              formControlName="defaultMakingChargeValue"
+            />
+          </app-form-field>
+
+          <app-form-field
+            label="Wastage %"
+            [control]="form.controls.defaultWastagePercentage"
+            [submitted]="submitted()"
+            for="edit-wastage"
+          >
+            <input
+              id="edit-wastage"
+              class="input numeric"
+              type="number"
+              step="0.01"
+              min="0"
+              formControlName="defaultWastagePercentage"
+            />
+          </app-form-field>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Description"
+            [control]="form.controls.description"
+            [submitted]="submitted()"
+            for="edit-desc"
+          >
+            <textarea
+              id="edit-desc"
+              class="textarea"
+              rows="3"
+              formControlName="description"
+            ></textarea>
+          </app-form-field>
+        </div>
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Cancel</button>
+      <button type="submit" form="product-edit-form" class="btn btn--primary" [disabled]="saving()">
+        @if (saving()) {
+          <app-spinner [size]="14" />
+        }
+        Save changes
+      </button>
+    </ng-container>
+  </app-drawer>
+}

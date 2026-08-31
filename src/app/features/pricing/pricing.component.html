@@ -1,0 +1,536 @@
+<app-page-header
+  title="Pricing engine"
+  eyebrow="Pricing"
+  description="Every figure that decides a price — making charge, wastage, tax and discount policy — configured here, not compiled into the app."
+/>
+
+<nav class="tabs" role="tablist" aria-label="Pricing sections">
+  @for (entry of tabs; track entry.id) {
+    <button
+      type="button"
+      role="tab"
+      class="tabs__tab"
+      [class.tabs__tab--active]="tab() === entry.id"
+      [attr.aria-selected]="tab() === entry.id"
+      (click)="selectTab(entry.id)"
+    >
+      {{ entry.label }}
+    </button>
+  }
+</nav>
+
+<ng-template #activeCell let-row>
+  <app-status-badge [status]="row.active ? 'ACTIVE' : 'INACTIVE'" />
+</ng-template>
+
+<ng-template #scopeCell let-row>
+  <span class="scope">{{ scopeOf(row) }}</span>
+</ng-template>
+
+<ng-template #periodCell let-row>
+  <span class="cell-stack">
+    <span class="mono">{{ row.effectiveFrom }}</span>
+    <span class="cell-stack__secondary mono">{{ row.effectiveTo ?? 'open-ended' }}</span>
+  </span>
+</ng-template>
+
+<ng-template #actionsCell let-row>
+  <span class="list-actions">
+    @if (canChange() && row.active) {
+      <button
+        type="button"
+        class="btn btn--danger-ghost btn--sm"
+        (click)="deactivate(row); $event.stopPropagation()"
+      >
+        Deactivate
+      </button>
+    }
+  </span>
+</ng-template>
+
+@if (tab() === 'calculator') {
+  <app-price-calculator />
+} @else {
+  <app-master-panel
+    [title]="createLabel()"
+    eyebrow="Pricing"
+    [showHeader]="false"
+    [columns]="columns()"
+    [page]="result()"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="sort()"
+    [trackBy]="trackById"
+    [cellTemplates]="templates()"
+    [canManage]="canChange()"
+    [createLabel]="createLabel()"
+    searchPlaceholder="Search code or name…"
+    emptyTitle="No rules configured"
+    emptyMessage="Add a rule and the engine starts applying it to new pricing."
+    [editing]="creating() ? 'new' : null"
+    [drawerTitle]="createLabel()"
+    drawerSubtitle="Rules take effect from their start date and never change a price already captured on a sale."
+    drawerSize="lg"
+    [formId]="formId()"
+    [saving]="saving()"
+    saveLabel="Create rule"
+    (create)="startCreate()"
+    (search)="onSearch($event)"
+    (sortChange)="onSort($event)"
+    (pageChange)="page.set($event)"
+    (sizeChange)="onSizeChange($event)"
+    (retry)="load()"
+    (dismiss)="close()"
+  >
+    @if (tab() === 'making') {
+      <form [formGroup]="makingForm" (ngSubmit)="save()" id="making-form">
+        @if (formError(); as message) {
+          <p class="form-error">{{ message }}</p>
+        }
+
+        <div class="form-section">
+          <div class="form-grid">
+            <app-form-field
+              label="Code"
+              [required]="true"
+              [control]="makingForm.controls.code"
+              [submitted]="submitted()"
+              for="mc-code"
+            >
+              <input id="mc-code" class="input mono" formControlName="code" autocomplete="off" />
+            </app-form-field>
+
+            <app-form-field
+              label="Name"
+              [required]="true"
+              [control]="makingForm.controls.name"
+              [submitted]="submitted()"
+              for="mc-name"
+            >
+              <input id="mc-name" class="input" formControlName="name" />
+            </app-form-field>
+
+            <app-form-field
+              label="Charge type"
+              [required]="true"
+              [control]="makingForm.controls.chargeType"
+              [submitted]="submitted()"
+              for="mc-type"
+            >
+              <select id="mc-type" class="select" formControlName="chargeType">
+                @for (type of chargeTypes; track type.value) {
+                  <option [value]="type.value">{{ type.label }}</option>
+                }
+              </select>
+            </app-form-field>
+
+            <app-form-field
+              label="Charge value"
+              [required]="true"
+              [control]="makingForm.controls.chargeValue"
+              [submitted]="submitted()"
+              for="mc-value"
+            >
+              <input
+                id="mc-value"
+                class="input numeric"
+                type="number"
+                step="0.01"
+                min="0"
+                formControlName="chargeValue"
+              />
+            </app-form-field>
+
+            <app-form-field
+              label="Wastage %"
+              [control]="makingForm.controls.wastagePercentage"
+              [submitted]="submitted()"
+              for="mc-wastage"
+            >
+              <input
+                id="mc-wastage"
+                class="input numeric"
+                type="number"
+                step="0.01"
+                min="0"
+                formControlName="wastagePercentage"
+              />
+            </app-form-field>
+
+            <app-form-field
+              label="Priority"
+              [required]="true"
+              hint="Higher wins when several rules match."
+              [control]="makingForm.controls.priority"
+              [submitted]="submitted()"
+              for="mc-priority"
+            >
+              <input
+                id="mc-priority"
+                class="input numeric"
+                type="number"
+                formControlName="priority"
+              />
+            </app-form-field>
+
+            <app-form-field
+              label="Minimum charge"
+              [control]="makingForm.controls.minCharge"
+              [submitted]="submitted()"
+              for="mc-min"
+            >
+              <input
+                id="mc-min"
+                class="input numeric"
+                type="number"
+                step="0.01"
+                min="0"
+                formControlName="minCharge"
+              />
+            </app-form-field>
+
+            <app-form-field
+              label="Maximum charge"
+              [control]="makingForm.controls.maxCharge"
+              [submitted]="submitted()"
+              for="mc-max"
+            >
+              <input
+                id="mc-max"
+                class="input numeric"
+                type="number"
+                step="0.01"
+                min="0"
+                formControlName="maxCharge"
+              />
+            </app-form-field>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3 class="form-section__title">What it applies to</h3>
+          <p class="muted form-note">Leave a field blank to apply the rule more broadly.</p>
+          <div class="form-grid">
+            <app-form-field
+              label="Product"
+              [control]="makingForm.controls.productId"
+              [submitted]="submitted()"
+              for="mc-product"
+            >
+              <select id="mc-product" class="select" formControlName="productId">
+                <option value="">Any product</option>
+                @for (product of products(); track product.id) {
+                  <option [value]="product.id">{{ product.sku }} — {{ product.name }}</option>
+                }
+              </select>
+            </app-form-field>
+
+            <app-form-field
+              label="Product type"
+              [control]="makingForm.controls.productTypeId"
+              [submitted]="submitted()"
+              for="mc-product-type"
+            >
+              <select id="mc-product-type" class="select" formControlName="productTypeId">
+                <option value="">Any type</option>
+                @for (type of productTypes(); track type.id) {
+                  <option [value]="type.id">{{ type.name }}</option>
+                }
+              </select>
+            </app-form-field>
+
+            <app-form-field
+              label="Metal"
+              [control]="makingForm.controls.metalId"
+              [submitted]="submitted()"
+              for="mc-metal"
+            >
+              <select
+                id="mc-metal"
+                class="select"
+                formControlName="metalId"
+                (change)="onMetalChange($event)"
+              >
+                <option value="">Any metal</option>
+                @for (metal of metals(); track metal.id) {
+                  <option [value]="metal.id">{{ metal.name }}</option>
+                }
+              </select>
+            </app-form-field>
+
+            <app-form-field
+              label="Purity"
+              [control]="makingForm.controls.purityId"
+              [submitted]="submitted()"
+              for="mc-purity"
+            >
+              <select
+                id="mc-purity"
+                class="select"
+                formControlName="purityId"
+                [disabled]="purities().length === 0"
+              >
+                <option value="">Any purity</option>
+                @for (purity of purities(); track purity.id) {
+                  <option [value]="purity.id">{{ purity.name }}</option>
+                }
+              </select>
+            </app-form-field>
+
+            <app-form-field
+              label="Branch"
+              [control]="makingForm.controls.branchId"
+              [submitted]="submitted()"
+              for="mc-branch"
+            >
+              <select id="mc-branch" class="select" formControlName="branchId">
+                <option value="">All branches</option>
+                @for (branch of branches(); track branch.id) {
+                  <option [value]="branch.id">{{ branch.name }}</option>
+                }
+              </select>
+            </app-form-field>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3 class="form-section__title">Effective period</h3>
+          <div class="form-grid">
+            <app-form-field
+              label="From"
+              [required]="true"
+              [control]="makingForm.controls.effectiveFrom"
+              [submitted]="submitted()"
+              for="mc-from"
+            >
+              <input id="mc-from" class="input" type="date" formControlName="effectiveFrom" />
+            </app-form-field>
+
+            <app-form-field
+              label="To"
+              hint="Leave blank for open-ended."
+              [control]="makingForm.controls.effectiveTo"
+              [submitted]="submitted()"
+              for="mc-to"
+            >
+              <input id="mc-to" class="input" type="date" formControlName="effectiveTo" />
+            </app-form-field>
+          </div>
+        </div>
+      </form>
+    } @else if (tab() === 'tax') {
+      <form [formGroup]="taxForm" (ngSubmit)="save()" id="tax-form">
+        @if (formError(); as message) {
+          <p class="form-error">{{ message }}</p>
+        }
+        <div class="form-grid">
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="taxForm.controls.code"
+            [submitted]="submitted()"
+            for="tx-code"
+          >
+            <input id="tx-code" class="input mono" formControlName="code" autocomplete="off" />
+          </app-form-field>
+
+          <app-form-field
+            label="Name"
+            [required]="true"
+            [control]="taxForm.controls.name"
+            [submitted]="submitted()"
+            for="tx-name"
+          >
+            <input id="tx-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <app-form-field
+            label="Percentage"
+            [required]="true"
+            [control]="taxForm.controls.percentage"
+            [submitted]="submitted()"
+            for="tx-percentage"
+          >
+            <input
+              id="tx-percentage"
+              class="input numeric"
+              type="number"
+              step="0.01"
+              min="0"
+              formControlName="percentage"
+            />
+          </app-form-field>
+
+          <div>
+            <label class="checkbox">
+              <input type="checkbox" formControlName="inclusive" />
+              <span>Already included in the price</span>
+            </label>
+          </div>
+
+          <app-form-field
+            label="Product type"
+            [control]="taxForm.controls.productTypeId"
+            [submitted]="submitted()"
+            for="tx-product-type"
+          >
+            <select id="tx-product-type" class="select" formControlName="productTypeId">
+              <option value="">Any type</option>
+              @for (type of productTypes(); track type.id) {
+                <option [value]="type.id">{{ type.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="Branch"
+            [control]="taxForm.controls.branchId"
+            [submitted]="submitted()"
+            for="tx-branch"
+          >
+            <select id="tx-branch" class="select" formControlName="branchId">
+              <option value="">All branches</option>
+              @for (branch of branches(); track branch.id) {
+                <option [value]="branch.id">{{ branch.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="From"
+            [required]="true"
+            [control]="taxForm.controls.effectiveFrom"
+            [submitted]="submitted()"
+            for="tx-from"
+          >
+            <input id="tx-from" class="input" type="date" formControlName="effectiveFrom" />
+          </app-form-field>
+
+          <app-form-field
+            label="To"
+            [control]="taxForm.controls.effectiveTo"
+            [submitted]="submitted()"
+            for="tx-to"
+          >
+            <input id="tx-to" class="input" type="date" formControlName="effectiveTo" />
+          </app-form-field>
+        </div>
+      </form>
+    } @else {
+      <form [formGroup]="discountForm" (ngSubmit)="save()" id="discount-form">
+        @if (formError(); as message) {
+          <p class="form-error">{{ message }}</p>
+        }
+        <div class="form-grid">
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="discountForm.controls.code"
+            [submitted]="submitted()"
+            for="dp-code"
+          >
+            <input id="dp-code" class="input mono" formControlName="code" autocomplete="off" />
+          </app-form-field>
+
+          <app-form-field
+            label="Name"
+            [required]="true"
+            [control]="discountForm.controls.name"
+            [submitted]="submitted()"
+            for="dp-name"
+          >
+            <input id="dp-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <app-form-field
+            label="Unaided limit %"
+            [required]="true"
+            hint="What a salesperson may give without asking."
+            [control]="discountForm.controls.maxPercentageWithoutApproval"
+            [submitted]="submitted()"
+            for="dp-unaided"
+          >
+            <input
+              id="dp-unaided"
+              class="input numeric"
+              type="number"
+              step="0.01"
+              min="0"
+              formControlName="maxPercentageWithoutApproval"
+            />
+          </app-form-field>
+
+          <app-form-field
+            label="Approved limit %"
+            [required]="true"
+            hint="The ceiling even with a manager's approval."
+            [control]="discountForm.controls.maxPercentageWithApproval"
+            [submitted]="submitted()"
+            for="dp-approved"
+          >
+            <input
+              id="dp-approved"
+              class="input numeric"
+              type="number"
+              step="0.01"
+              min="0"
+              formControlName="maxPercentageWithApproval"
+            />
+          </app-form-field>
+
+          <div>
+            <label class="checkbox">
+              <input type="checkbox" formControlName="appliesToMakingCharge" />
+              <span>May discount the making charge</span>
+            </label>
+          </div>
+
+          <div>
+            <label class="checkbox">
+              <input type="checkbox" formControlName="appliesToMetalValue" />
+              <span>May discount the metal value</span>
+            </label>
+          </div>
+
+          <app-form-field
+            label="Branch"
+            [control]="discountForm.controls.branchId"
+            [submitted]="submitted()"
+            for="dp-branch"
+          >
+            <select id="dp-branch" class="select" formControlName="branchId">
+              <option value="">All branches</option>
+              @for (branch of branches(); track branch.id) {
+                <option [value]="branch.id">{{ branch.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="From"
+            [required]="true"
+            [control]="discountForm.controls.effectiveFrom"
+            [submitted]="submitted()"
+            for="dp-from"
+          >
+            <input id="dp-from" class="input" type="date" formControlName="effectiveFrom" />
+          </app-form-field>
+
+          <app-form-field
+            label="To"
+            [control]="discountForm.controls.effectiveTo"
+            [submitted]="submitted()"
+            for="dp-to"
+          >
+            <input id="dp-to" class="input" type="date" formControlName="effectiveTo" />
+          </app-form-field>
+        </div>
+      </form>
+    }
+  </app-master-panel>
+
+  <p class="rate-note muted">
+    Rules apply from their start date onwards. A price already captured on a sale keeps the figures
+    it was settled with, so changing today's rate or charge can never alter an old invoice.
+  </p>
+}

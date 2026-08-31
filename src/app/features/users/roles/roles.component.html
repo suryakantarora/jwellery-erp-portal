@@ -1,0 +1,207 @@
+<app-page-header
+  title="Roles"
+  eyebrow="Users & Access"
+  description="Roles and the permissions each one grants."
+>
+  @if (canManage()) {
+    <button type="button" class="btn btn--primary" (click)="startCreate()">New role</button>
+  }
+</app-page-header>
+
+<section class="list-card">
+  <div class="list-toolbar">
+    <app-search-box placeholder="Search code or name…" (search)="onSearch($event)" />
+    <div class="list-toolbar__actions">
+      <button type="button" class="btn btn--ghost btn--sm" (click)="load()" [disabled]="loading()">
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <app-data-table
+    [columns]="columns"
+    [rows]="result().content"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="sort()"
+    [trackBy]="trackById"
+    [rowClickable]="true"
+    emptyTitle="No roles"
+    emptyMessage="Create a role and grant it permissions."
+    (sortChange)="onSort($event)"
+    (rowClick)="startEdit($event)"
+    (retry)="load()"
+  >
+    <ng-template appCell="name" [appCellOf]="result().content" let-row>
+      <span class="cell-stack">
+        <span class="cell-stack__primary">{{ row.name }}</span>
+        @if (row.description) {
+          <span class="cell-stack__secondary">{{ row.description }}</span>
+        }
+      </span>
+    </ng-template>
+
+    <ng-template appCell="permissions" [appCellOf]="result().content" let-row>
+      @if (row.superAdmin) {
+        <span class="chip">All</span>
+      } @else {
+        <span class="numeric">{{ row.permissions.length }}</span>
+      }
+    </ng-template>
+
+    <ng-template appCell="systemRole" [appCellOf]="result().content" let-row>
+      <app-status-badge
+        [tone]="row.systemRole ? 'info' : 'neutral'"
+        [label]="row.systemRole ? 'System' : 'Custom'"
+      />
+    </ng-template>
+
+    <ng-template appCell="actions" [appCellOf]="result().content" let-row>
+      <span class="list-actions">
+        <button
+          type="button"
+          class="btn btn--ghost btn--sm"
+          (click)="startEdit(row); $event.stopPropagation()"
+        >
+          {{ canManage() && !row.systemRole ? 'Edit' : 'View' }}
+        </button>
+        @if (canManage() && !row.systemRole) {
+          <button
+            type="button"
+            class="btn btn--danger-ghost btn--sm"
+            (click)="remove(row); $event.stopPropagation()"
+          >
+            Delete
+          </button>
+        }
+      </span>
+    </ng-template>
+  </app-data-table>
+
+  <app-pagination
+    [page]="result().page"
+    [size]="result().size"
+    [totalElements]="result().totalElements"
+    [totalPages]="result().totalPages"
+    (pageChange)="page.set($event)"
+    (sizeChange)="onSizeChange($event)"
+  />
+</section>
+
+@if (editing(); as target) {
+  <app-drawer
+    eyebrow="Users & Access"
+    [title]="target === 'new' ? 'New role' : target.name"
+    [subtitle]="target === 'new' ? 'Define a role and its permissions.' : 'Role ' + target.code"
+    size="lg"
+    [closeOnBackdrop]="false"
+    (dismiss)="close()"
+  >
+    <form [formGroup]="form" (ngSubmit)="save()" id="role-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+
+      @if (target !== 'new' && target.systemRole) {
+        <p class="form-error">
+          This is a system role defined by the platform. It can be viewed but not changed.
+        </p>
+      }
+
+      <div class="form-section">
+        <div class="form-grid">
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="form.controls.code"
+            [submitted]="submitted()"
+            for="role-code"
+          >
+            <input id="role-code" class="input mono" formControlName="code" autocomplete="off" />
+          </app-form-field>
+
+          <app-form-field
+            label="Name"
+            [required]="true"
+            [control]="form.controls.name"
+            [submitted]="submitted()"
+            for="role-name"
+          >
+            <input id="role-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Description"
+            [control]="form.controls.description"
+            [submitted]="submitted()"
+            for="role-description"
+          >
+            <input id="role-description" class="input" formControlName="description" />
+          </app-form-field>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3 class="form-section__title">Permissions</h3>
+
+        @if (target !== 'new' && target.superAdmin) {
+          <p class="muted">
+            This role holds every permission the platform defines, now and in the future.
+          </p>
+        }
+
+        @for (group of groups(); track group.module) {
+          <section class="matrix-group">
+            <header class="matrix-group__header">
+              <span class="matrix-group__title">{{ group.label }}</span>
+              <span class="matrix-group__count numeric">
+                {{ selectedInGroup(group) }} / {{ group.permissions.length }}
+              </span>
+              @if (editable()) {
+                <button type="button" class="btn btn--ghost btn--sm" (click)="toggleGroup(group)">
+                  {{ selectedInGroup(group) === group.permissions.length ? 'Clear' : 'Select all' }}
+                </button>
+              }
+            </header>
+
+            <div class="matrix-group__items">
+              @for (permission of group.permissions; track permission.id) {
+                <label class="option-list__item">
+                  <input
+                    type="checkbox"
+                    [checked]="isSelected(permission.id)"
+                    [disabled]="!editable()"
+                    (change)="togglePermission(permission.id)"
+                  />
+                  <span class="option-list__label">
+                    <span class="mono">{{ permission.code }}</span>
+                    @if (permission.description) {
+                      <span class="option-list__hint">{{ permission.description }}</span>
+                    }
+                  </span>
+                </label>
+              }
+            </div>
+          </section>
+        } @empty {
+          <p class="muted">The permission catalogue could not be loaded.</p>
+        }
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">
+        {{ editable() ? 'Cancel' : 'Close' }}
+      </button>
+      @if (editable()) {
+        <button type="submit" form="role-form" class="btn btn--primary" [disabled]="saving()">
+          @if (saving()) {
+            <app-spinner [size]="14" />
+          }
+          {{ target === 'new' ? 'Create role' : 'Save changes' }}
+        </button>
+      }
+    </ng-container>
+  </app-drawer>
+}

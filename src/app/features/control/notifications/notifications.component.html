@@ -1,0 +1,240 @@
+@if (view() === 'approvals') {
+  <app-page-header
+    title="Approval centre"
+    eyebrow="Approvals"
+    description="Everything across the platform that is waiting on a decision, in one queue."
+  />
+} @else {
+  <app-page-header
+    title="Notifications"
+    eyebrow="Notifications"
+    description="What the platform has sent, what failed, and the templates behind each message."
+  />
+
+  <nav class="tabs" role="tablist" aria-label="Notification sections">
+    @for (entry of tabs; track entry.id) {
+      <button
+        type="button"
+        role="tab"
+        class="tabs__tab"
+        [class.tabs__tab--active]="tab() === entry.id"
+        [attr.aria-selected]="tab() === entry.id"
+        (click)="selectTab(entry.id)"
+      >
+        {{ entry.label }}
+      </button>
+    }
+  </nav>
+}
+
+<ng-template #statusCell let-row>
+  <span class="cell-stack">
+    <app-status-badge [status]="row.status" />
+    @if (row.failureReason) {
+      <span class="cell-stack__secondary">{{ row.failureReason }}</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #recipientCell let-row>
+  <span class="cell-stack">
+    <span>{{ row.recipientAddress ?? '—' }}</span>
+    <span class="cell-stack__secondary">{{ row.recipientType }}</span>
+  </span>
+</ng-template>
+
+<ng-template #whenCell let-row>
+  <span class="cell-stack">
+    <span>{{ row.createdAt | relativeTime }}</span>
+    @if (row.sentAt) {
+      <span class="cell-stack__secondary">sent {{ row.sentAt | relativeTime }}</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #templateActiveCell let-row>
+  <button
+    type="button"
+    class="btn btn--ghost btn--sm"
+    (click)="toggleTemplate(row); $event.stopPropagation()"
+  >
+    <app-status-badge [status]="row.active ? 'ACTIVE' : 'INACTIVE'" />
+  </button>
+</ng-template>
+
+<ng-template #approvalCell let-row>
+  <span class="mono">{{ row.reference }}</span>
+</ng-template>
+
+<ng-template #approvalWhenCell let-row>
+  {{ row.raisedAt | relativeTime }}
+</ng-template>
+
+@if (view() === 'approvals') {
+  <app-master-panel
+    title="Approval centre"
+    eyebrow="Approvals"
+    [showHeader]="false"
+    [columns]="approvalColumns"
+    [page]="approvalPage()"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="sort()"
+    [trackBy]="trackById"
+    [cellTemplates]="approvalTemplates()"
+    [canManage]="false"
+    searchPlaceholder="Search the queue…"
+    emptyTitle="Nothing waiting"
+    emptyMessage="Every transfer, order, receipt, valuation and count has been decided."
+    [editing]="null"
+    formId="approval-queue"
+    (search)="onSearch($event)"
+    (sortChange)="onSort($event)"
+    (pageChange)="page.set($event)"
+    (sizeChange)="onSizeChange($event)"
+    (retry)="load()"
+  />
+
+  <p class="rate-note muted">
+    Each item is approved in the module that owns it, where its full context is visible — this queue
+    is where you find them, not where you decide them.
+  </p>
+} @else if (tab() === 'outbox') {
+  <app-master-panel
+    title="Outbox"
+    eyebrow="Notifications"
+    [showHeader]="false"
+    [columns]="outboxColumns"
+    [page]="notifications()"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="null"
+    [trackBy]="trackById"
+    [cellTemplates]="outboxTemplates()"
+    [searchable]="false"
+    [canManage]="false"
+    emptyTitle="Nothing sent"
+    emptyMessage="Messages the platform raises appear here with their delivery state."
+    [editing]="null"
+    formId="outbox"
+    (pageChange)="onPage($event)"
+    (sizeChange)="onSizeChange($event)"
+    (retry)="load()"
+  >
+    <div panelFilters class="panel-filters">
+      <label class="panel-filters__field">
+        <span class="field-label">Status</span>
+        <select class="select" (change)="onFilter('status', $event)">
+          <option value="">All statuses</option>
+          @for (status of statuses; track status.value) {
+            <option [value]="status.value" [selected]="status.value === statusFilter()">
+              {{ status.label }}
+            </option>
+          }
+        </select>
+      </label>
+
+      <label class="panel-filters__field">
+        <span class="field-label">Channel</span>
+        <select class="select" (change)="onFilter('channel', $event)">
+          <option value="">All channels</option>
+          @for (channel of channels; track channel.value) {
+            <option [value]="channel.value" [selected]="channel.value === channelFilter()">
+              {{ channel.label }}
+            </option>
+          }
+        </select>
+      </label>
+    </div>
+  </app-master-panel>
+} @else {
+  <app-master-panel
+    title="Templates"
+    eyebrow="Notifications"
+    [showHeader]="false"
+    [columns]="templateColumns"
+    [page]="templatePage()"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="sort()"
+    [trackBy]="trackById"
+    [cellTemplates]="templateTemplates()"
+    [canManage]="canManage()"
+    createLabel="New template"
+    searchPlaceholder="Search templates…"
+    emptyTitle="No templates"
+    emptyMessage="A template decides what a message says when an event fires."
+    [editing]="creating() ? 'new' : null"
+    drawerTitle="New template"
+    drawerSubtitle="Placeholders in the body are filled from the event that raised the message."
+    drawerSize="lg"
+    formId="template-form"
+    [saving]="saving()"
+    saveLabel="Create template"
+    (create)="startCreate()"
+    (search)="onSearch($event)"
+    (sortChange)="onSort($event)"
+    (pageChange)="page.set($event)"
+    (sizeChange)="onSizeChange($event)"
+    (retry)="load()"
+    (dismiss)="close()"
+  >
+    <form [formGroup]="templateForm" (ngSubmit)="save()" id="template-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+      <div class="form-grid">
+        <app-form-field
+          label="Code"
+          [required]="true"
+          [control]="templateForm.controls.code"
+          [submitted]="submitted()"
+          for="tp-code"
+        >
+          <input id="tp-code" class="input mono" formControlName="code" autocomplete="off" />
+        </app-form-field>
+
+        <app-form-field
+          label="Event"
+          [required]="true"
+          hint="The event that fires this message."
+          [control]="templateForm.controls.eventType"
+          [submitted]="submitted()"
+          for="tp-event"
+        >
+          <input id="tp-event" class="input mono" formControlName="eventType" />
+        </app-form-field>
+
+        <app-form-field
+          label="Locale"
+          [control]="templateForm.controls.locale"
+          [submitted]="submitted()"
+          for="tp-locale"
+        >
+          <input id="tp-locale" class="input mono" formControlName="locale" />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Subject"
+          [control]="templateForm.controls.subject"
+          [submitted]="submitted()"
+          for="tp-subject"
+        >
+          <input id="tp-subject" class="input" formControlName="subject" />
+        </app-form-field>
+
+        <app-form-field
+          class="form-grid__full"
+          label="Body"
+          [required]="true"
+          [control]="templateForm.controls.body"
+          [submitted]="submitted()"
+          for="tp-body"
+        >
+          <textarea id="tp-body" class="textarea" rows="6" formControlName="body"></textarea>
+        </app-form-field>
+      </div>
+    </form>
+  </app-master-panel>
+}

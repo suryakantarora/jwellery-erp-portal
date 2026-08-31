@@ -1,0 +1,394 @@
+<ng-template #refCell let-row>
+  <span class="cell-stack">
+    <span class="cell-stack__primary mono">{{ row.referenceNumber }}</span>
+    @if (row.status === 'PENDING_APPROVAL' && row.approvedBy) {
+      <!-- A dual-authorization location needs a second, different approver. -->
+      <span class="cell-stack__secondary">Awaiting a second approver</span>
+    } @else if (row.requiresApproval && row.status === 'PENDING_APPROVAL') {
+      <span class="cell-stack__secondary">Needs approval</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #routeCell let-row>
+  <span class="route">
+    <span>{{ locationName(row.fromLocationId) }}</span>
+    <span class="route__arrow" aria-hidden="true">→</span>
+    <span>{{ locationName(row.toLocationId) }}</span>
+  </span>
+</ng-template>
+
+<ng-template #statusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<ng-template #createdCell let-row>
+  <span class="cell-stack">
+    <span>{{ row.createdAt | relativeTime }}</span>
+    @if (row.createdBy) {
+      <span class="cell-stack__secondary">{{ row.createdBy }}</span>
+    }
+  </span>
+</ng-template>
+
+<ng-template #actionsCell let-row>
+  <span class="list-actions">
+    <button
+      type="button"
+      class="btn btn--ghost btn--sm"
+      (click)="view(row); $event.stopPropagation()"
+    >
+      Open
+    </button>
+
+    @if (row.status === 'PENDING_APPROVAL' && canApprove()) {
+      <button
+        type="button"
+        class="btn btn--secondary btn--sm"
+        [disabled]="saving()"
+        (click)="approve(row); $event.stopPropagation()"
+      >
+        Approve
+      </button>
+      <button
+        type="button"
+        class="btn btn--danger-ghost btn--sm"
+        [disabled]="saving()"
+        (click)="reject(row); $event.stopPropagation()"
+      >
+        Reject
+      </button>
+    }
+
+    @if (row.status === 'APPROVED' && canTransfer()) {
+      <button
+        type="button"
+        class="btn btn--secondary btn--sm"
+        [disabled]="saving()"
+        (click)="dispatch(row); $event.stopPropagation()"
+      >
+        Dispatch
+      </button>
+    }
+
+    @if (row.status === 'DISPATCHED' && canTransfer()) {
+      <button
+        type="button"
+        class="btn btn--primary btn--sm"
+        [disabled]="saving()"
+        (click)="receive(row); $event.stopPropagation()"
+      >
+        Receive
+      </button>
+    }
+  </span>
+</ng-template>
+
+<app-master-panel
+  title="Stock transfers"
+  eyebrow="Inventory"
+  description="Movement between warehouse, showroom and counter — raised, approved, dispatched and received."
+  [columns]="columns"
+  [page]="result()"
+  [loading]="loading()"
+  [error]="error()"
+  [sort]="sort()"
+  [trackBy]="trackById"
+  [cellTemplates]="templates()"
+  [searchable]="false"
+  [canManage]="canTransfer()"
+  createLabel="New transfer"
+  emptyTitle="No transfers"
+  emptyMessage="Raise a transfer to move pieces between locations."
+  [editing]="creating() ? 'new' : null"
+  drawerTitle="New transfer"
+  drawerSubtitle="Only pieces available at the source location can be moved."
+  drawerSize="lg"
+  formId="transfer-form"
+  [saving]="saving()"
+  saveLabel="Raise transfer"
+  (create)="startCreate()"
+  (rowClick)="view($event)"
+  (sortChange)="onSort($event)"
+  (pageChange)="onPage($event)"
+  (sizeChange)="onSizeChange($event)"
+  (retry)="load()"
+  (dismiss)="close()"
+>
+  <div panelFilters class="panel-filters">
+    <label class="panel-filters__field">
+      <span class="field-label">Status</span>
+      <select class="select" (change)="onFilter('status', $event)">
+        <option value="">All statuses</option>
+        @for (status of movementStatuses; track status.value) {
+          <option [value]="status.value" [selected]="status.value === statusFilter()">
+            {{ status.label }}
+          </option>
+        }
+      </select>
+    </label>
+
+    <label class="panel-filters__field">
+      <span class="field-label">Type</span>
+      <select class="select" (change)="onFilter('type', $event)">
+        <option value="">All types</option>
+        @for (type of movementTypes; track type.value) {
+          <option [value]="type.value" [selected]="type.value === typeFilter()">
+            {{ type.label }}
+          </option>
+        }
+      </select>
+    </label>
+
+    @if (activeFilterCount() > 0) {
+      <button type="button" class="btn btn--ghost btn--sm" (click)="clearFilters()">
+        Clear filters
+      </button>
+    }
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="save()" id="transfer-form">
+    @if (formError(); as message) {
+      <p class="form-error">{{ message }}</p>
+    }
+
+    <div class="form-grid">
+      <app-form-field
+        label="Type"
+        [required]="true"
+        [control]="form.controls.movementType"
+        [submitted]="submitted()"
+        for="mv-type"
+      >
+        <select id="mv-type" class="select" formControlName="movementType">
+          @for (type of movementTypes; track type.value) {
+            <option [value]="type.value">{{ type.label }}</option>
+          }
+        </select>
+      </app-form-field>
+
+      <app-form-field
+        label="From"
+        hint="Leave blank for stock entering from outside."
+        [control]="form.controls.fromLocationId"
+        [submitted]="submitted()"
+        for="mv-from"
+      >
+        <select
+          id="mv-from"
+          class="select"
+          formControlName="fromLocationId"
+          (change)="onSourceChange($event)"
+        >
+          <option value="">Outside the platform</option>
+          @for (location of locations(); track location.id) {
+            <option [value]="location.id">{{ location.name }}</option>
+          }
+        </select>
+      </app-form-field>
+
+      <app-form-field
+        label="To"
+        [required]="true"
+        [control]="form.controls.toLocationId"
+        [submitted]="submitted()"
+        for="mv-to"
+      >
+        <select id="mv-to" class="select" formControlName="toLocationId">
+          <option value="" disabled>Select a destination</option>
+          @for (location of locations(); track location.id) {
+            <option [value]="location.id">{{ location.name }}</option>
+          }
+        </select>
+      </app-form-field>
+
+      <app-form-field
+        class="form-grid__full"
+        label="Notes"
+        [control]="form.controls.notes"
+        [submitted]="submitted()"
+        for="mv-notes"
+      >
+        <input id="mv-notes" class="input" formControlName="notes" />
+      </app-form-field>
+    </div>
+
+    <div class="form-section">
+      <h3 class="form-section__title">
+        Pieces to move
+        @if (selectedItems().size > 0) {
+          <span class="muted">· {{ selectedItems().size }} selected</span>
+        }
+      </h3>
+
+      @if (!form.controls.fromLocationId.value) {
+        <p class="muted">Choose a source location to list the pieces available there.</p>
+      } @else if (sourceItems().length === 0) {
+        <p class="muted">No available pieces sit at that location.</p>
+      } @else {
+        <div class="option-list">
+          @for (item of sourceItems(); track item.id) {
+            <label class="option-list__item">
+              <input
+                type="checkbox"
+                [checked]="isSelected(item.id)"
+                (change)="toggleItem(item.id)"
+              />
+              <span class="option-list__label">
+                <span class="mono">{{ item.itemCode }}</span>
+                <span class="option-list__hint numeric">{{ item.grossWeight }} g</span>
+              </span>
+            </label>
+          }
+        </div>
+      }
+    </div>
+  </form>
+</app-master-panel>
+
+@if (viewing(); as movement) {
+  <app-drawer
+    eyebrow="Inventory"
+    [title]="movement.referenceNumber"
+    [subtitle]="typeLabel(movement.movementType)"
+    size="lg"
+    (dismiss)="close()"
+  >
+    <dl class="detail-facts">
+      <div>
+        <dt>Status</dt>
+        <dd><app-status-badge [status]="movement.status" /></dd>
+      </div>
+      <div>
+        <dt>From</dt>
+        <dd>{{ locationName(movement.fromLocationId) }}</dd>
+      </div>
+      <div>
+        <dt>To</dt>
+        <dd>{{ locationName(movement.toLocationId) }}</dd>
+      </div>
+      <div>
+        <dt>Raised</dt>
+        <dd>
+          {{ movement.createdAt | relativeTime
+          }}{{ movement.createdBy ? ' · ' + movement.createdBy : '' }}
+        </dd>
+      </div>
+      @if (movement.approvedAt) {
+        <div>
+          <dt>Approved</dt>
+          <dd>
+            {{ movement.approvedAt | relativeTime
+            }}{{ movement.approvedBy ? ' · ' + movement.approvedBy : '' }}
+          </dd>
+        </div>
+      }
+      @if (movement.dispatchedAt) {
+        <div>
+          <dt>Dispatched</dt>
+          <dd>
+            {{ movement.dispatchedAt | relativeTime
+            }}{{ movement.dispatchedBy ? ' · ' + movement.dispatchedBy : '' }}
+          </dd>
+        </div>
+      }
+      @if (movement.completedAt) {
+        <div>
+          <dt>Received</dt>
+          <dd>
+            {{ movement.completedAt | relativeTime
+            }}{{ movement.receivedBy ? ' · ' + movement.receivedBy : '' }}
+          </dd>
+        </div>
+      }
+    </dl>
+
+    @if (movement.rejectionReason) {
+      <p class="form-error">{{ movement.rejectionReason }}</p>
+    }
+    @if (movement.notes) {
+      <p class="muted transfer-notes">{{ movement.notes }}</p>
+    }
+
+    <div class="form-section">
+      <h3 class="form-section__title">Pieces ({{ movement.lines.length }})</h3>
+      <ul class="line-list">
+        @for (line of movement.lines; track line.id) {
+          <li class="line">
+            <span class="mono">{{ line.itemCode }}</span>
+            <span class="numeric muted">
+              {{ line.dispatchedWeight ?? '—' }} g
+              @if (line.receivedWeight !== null && line.receivedWeight !== undefined) {
+                → {{ line.receivedWeight }} g
+              }
+            </span>
+            @if (line.received) {
+              <app-status-badge tone="success" label="Received" [dot]="false" />
+            }
+            @if (line.discrepancyNote) {
+              <span class="line__note">{{ line.discrepancyNote }}</span>
+            }
+          </li>
+        }
+      </ul>
+    </div>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Close</button>
+      @if (movement.status === 'PENDING_APPROVAL' && canApprove()) {
+        <button
+          type="button"
+          class="btn btn--danger-ghost"
+          [disabled]="saving()"
+          (click)="reject(movement)"
+        >
+          Reject
+        </button>
+        @if (alreadyApprovedByMe(movement)) {
+          <span class="muted transfer-hint"
+            >You have approved this. A second approver is required.</span
+          >
+        }
+        <button
+          type="button"
+          class="btn btn--primary"
+          [disabled]="saving()"
+          (click)="approve(movement)"
+        >
+          @if (saving()) {
+            <app-spinner [size]="14" />
+          }
+          Approve
+        </button>
+      }
+      @if (movement.status === 'APPROVED' && canTransfer()) {
+        <button
+          type="button"
+          class="btn btn--danger-ghost"
+          [disabled]="saving()"
+          (click)="cancel(movement)"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="btn btn--primary"
+          [disabled]="saving()"
+          (click)="dispatch(movement)"
+        >
+          Dispatch
+        </button>
+      }
+      @if (movement.status === 'DISPATCHED' && canTransfer()) {
+        <button
+          type="button"
+          class="btn btn--primary"
+          [disabled]="saving()"
+          (click)="receive(movement)"
+        >
+          Confirm receipt
+        </button>
+      }
+    </ng-container>
+  </app-drawer>
+}

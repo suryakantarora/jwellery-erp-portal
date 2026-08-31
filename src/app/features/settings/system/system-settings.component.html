@@ -1,0 +1,221 @@
+<app-page-header
+  title="Settings"
+  eyebrow="Settings"
+  description="The platform's configured state, and where each part of it is maintained."
+/>
+
+@if (loading() && companies().length === 0) {
+  <app-loading-state label="Loading configuration…" />
+} @else if (error(); as failure) {
+  <app-error-state [error]="failure" (retry)="load()" />
+} @else {
+  <div class="report-grid">
+    <!--
+      Appearance leads and spans the row: the palette grid needs the width, and
+      it is the one thing on this page an operator actually changes.
+    -->
+    <section class="card detail-section report-grid__wide">
+      <header class="section-head">
+        <h2 class="detail-section__title">Appearance</h2>
+        @if (themedInstitution(); as company) {
+          <span class="chip">{{ company.name }}</span>
+        }
+      </header>
+
+      <div class="appearance">
+        <div>
+          <p class="field-label">Institution colour</p>
+          <p class="muted appearance__hint">
+            @if (themedInstitution(); as company) {
+              Saved against {{ company.name }}, so switching branch switches the colour with it.
+            } @else {
+              Sign in to a branch to set an institution's palette. Until then this sets the default.
+            }
+          </p>
+
+          <div class="accents" role="radiogroup" aria-label="Accent colour">
+            @for (option of theme.accentOptions; track option.value) {
+              <button
+                type="button"
+                role="radio"
+                class="accent"
+                [class.accent--active]="theme.accent() === option.value"
+                [attr.aria-checked]="theme.accent() === option.value"
+                [title]="option.label + ' — ' + option.mood"
+                (click)="chooseAccent(option.value)"
+              >
+                <span
+                  class="accent__swatch"
+                  [style.background]="option.swatch"
+                  aria-hidden="true"
+                ></span>
+                <span class="accent__text">
+                  <span class="accent__label">{{ option.label }}</span>
+                  <span class="accent__mood">{{ option.mood }}</span>
+                </span>
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="appearance__theme">
+          <p class="field-label">Light or dark</p>
+          <p class="muted appearance__hint">Applies to this browser only.</p>
+
+          <div class="theme-options" role="group" aria-label="Theme preference">
+            @for (option of themeOptions; track option.value) {
+              <button
+                type="button"
+                class="theme-option"
+                [class.theme-option--active]="theme.preference() === option.value"
+                [attr.aria-pressed]="theme.preference() === option.value"
+                (click)="theme.set(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            }
+          </div>
+
+          <p class="muted appearance__hint">
+            Your own account details and password are on
+            <a routerLink="/settings/profile">your profile</a>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card detail-section">
+      <header class="section-head">
+        <h2 class="detail-section__title">Organisation</h2>
+        <a class="btn btn--ghost btn--sm" routerLink="/organization/companies">Manage</a>
+      </header>
+
+      @if (companies().length === 0) {
+        <p class="muted">No company is registered yet.</p>
+      } @else {
+        <ul class="record-list">
+          @for (company of companies(); track company.id) {
+            <li class="record">
+              <div>
+                <p class="record__title">{{ company.name }}</p>
+                <p class="record__detail mono">
+                  {{ company.code }} · {{ company.taxNumber ?? 'no tax number' }}
+                </p>
+              </div>
+              <div class="record__side">
+                <span class="mono">{{ company.baseCurrency ?? 'no currency' }}</span>
+                <app-status-badge [status]="company.status" />
+              </div>
+            </li>
+          }
+        </ul>
+        <p class="muted detail-note">
+          {{ branchCount() }} branch(es). Currency belongs to the company that trades in it, so it
+          is set on the company record.
+        </p>
+      }
+    </section>
+
+    @if (canSeePricing()) {
+      <section class="card detail-section">
+        <header class="section-head">
+          <h2 class="detail-section__title">Tax</h2>
+          <a class="btn btn--ghost btn--sm" routerLink="/pricing">Manage</a>
+        </header>
+
+        @if (activeTaxRates().length === 0) {
+          <p class="muted">No tax rate is in force. Sales will be priced without tax.</p>
+        } @else {
+          <ul class="record-list">
+            @for (rate of activeTaxRates(); track rate.id) {
+              <li class="record">
+                <div>
+                  <p class="record__title">{{ rate.name }}</p>
+                  <p class="record__detail mono">{{ rate.code }} · from {{ rate.effectiveFrom }}</p>
+                </div>
+                <div class="record__side">
+                  <span class="numeric">{{ rate.value }}%</span>
+                  <span class="record__detail">
+                    {{ rate.inclusive ? 'Inclusive' : 'Added on top' }}
+                  </span>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    }
+
+    @if (canSeeNotifications()) {
+      <section class="card detail-section">
+        <header class="section-head">
+          <h2 class="detail-section__title">Notifications</h2>
+          <a class="btn btn--ghost btn--sm" routerLink="/notifications">Manage</a>
+        </header>
+
+        @if (activeTemplates().length === 0) {
+          <p class="muted">No template is enabled, so no message will be sent.</p>
+        } @else {
+          <ul class="record-list record-list--scroll">
+            @for (template of activeTemplates(); track template.id) {
+              <li class="record">
+                <div>
+                  <p class="record__title mono">{{ template.code }}</p>
+                  <p class="record__detail mono">{{ template.eventType }}</p>
+                </div>
+                <div class="record__side">
+                  <span class="record__detail">{{ template.channel }}</span>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    }
+
+    <section class="card detail-section">
+      <h2 class="detail-section__title">Document numbering</h2>
+      <p class="muted">
+        Every document is numbered by the backend as it is created, so a number is never reserved,
+        skipped or reused by a client.
+      </p>
+      <div class="chip-row numbering">
+        <span class="chip mono">INV-…</span>
+        <span class="chip mono">MOV-…</span>
+        <span class="chip mono">GRN-…</span>
+        <span class="chip mono">EX-…</span>
+        <span class="chip mono">JE-…</span>
+      </div>
+    </section>
+
+    <section class="card detail-section report-grid__wide">
+      <h2 class="detail-section__title">Platform</h2>
+      <dl class="detail-facts">
+        <div>
+          <dt>Environment</dt>
+          <dd>{{ environment.name }}</dd>
+        </div>
+        <div>
+          <dt>API</dt>
+          <dd class="mono">{{ environment.apiBaseUrl }}{{ environment.apiPrefix }}</dd>
+        </div>
+        <div>
+          <dt>Page size</dt>
+          <dd class="numeric">{{ environment.defaultPageSize }}</dd>
+        </div>
+        <div>
+          <dt>Companies</dt>
+          <dd class="numeric">{{ companies().length }}</dd>
+        </div>
+        <div>
+          <dt>Branches</dt>
+          <dd class="numeric">{{ branchCount() }}</dd>
+        </div>
+      </dl>
+      <p class="muted detail-note">
+        Authorization is enforced by the backend on every call. What this portal hides is a
+        convenience for the operator, never the security boundary.
+      </p>
+    </section>
+  </div>
+}

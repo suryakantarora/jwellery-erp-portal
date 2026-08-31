@@ -1,0 +1,452 @@
+<app-page-header
+  title="CRM"
+  eyebrow="CRM"
+  description="What the business owes its customers next, who it has spoken to, and who to talk to."
+/>
+
+<nav class="tabs" role="tablist" aria-label="CRM sections">
+  @for (entry of tabs; track entry.id) {
+    <button
+      type="button"
+      role="tab"
+      class="tabs__tab"
+      [class.tabs__tab--active]="tab() === entry.id"
+      [attr.aria-selected]="tab() === entry.id"
+      (click)="selectTab(entry.id)"
+    >
+      {{ entry.label }}
+    </button>
+  }
+</nav>
+
+<ng-template #customerCell let-row>
+  <button
+    type="button"
+    class="link-cell"
+    (click)="openCustomer(row.customerId); $event.stopPropagation()"
+  >
+    <span class="cell-stack">
+      <span class="cell-stack__primary">{{ customerName(row.customerId) }}</span>
+      <span class="cell-stack__secondary mono">{{ customerPhone(row.customerId) }}</span>
+    </span>
+  </button>
+</ng-template>
+
+<ng-template #followStatusCell let-row>
+  <app-status-badge
+    [status]="row.status"
+    [tone]="row.status === 'OPEN' && row.overdue ? 'danger' : null"
+    [label]="row.status === 'OPEN' && row.overdue ? 'Overdue' : null"
+  />
+</ng-template>
+
+<ng-template #followActionsCell let-row>
+  <span class="list-actions">
+    @if (row.status === 'OPEN' && canManage()) {
+      <button
+        type="button"
+        class="btn btn--ghost btn--sm"
+        (click)="completeFollowUp(row); $event.stopPropagation()"
+      >
+        Complete
+      </button>
+    }
+  </span>
+</ng-template>
+
+<ng-template #activityCustomerCell let-row>
+  <button
+    type="button"
+    class="link-cell"
+    (click)="openCustomer(row.customerId); $event.stopPropagation()"
+  >
+    {{ customerName(row.customerId) }}
+  </button>
+</ng-template>
+
+<ng-template #activityWhenCell let-row>
+  {{ row.occurredAt | relativeTime }}
+</ng-template>
+
+<ng-template #segmentRulesCell let-row>
+  <span class="rules">{{ segmentRules(row) }}</span>
+</ng-template>
+
+<ng-template #segmentActionsCell let-row>
+  <span class="list-actions">
+    <button
+      type="button"
+      class="btn btn--ghost btn--sm"
+      (click)="previewSegment(row); $event.stopPropagation()"
+    >
+      Evaluate
+    </button>
+  </span>
+</ng-template>
+
+<ng-template #campaignStatusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<ng-template #campaignReachCell let-row>
+  <span class="numeric">{{ row.sentCount }} / {{ row.targetCount }}</span>
+</ng-template>
+
+@switch (tab()) {
+  @case ('follow-ups') {
+    <app-master-panel
+      title="Follow-ups"
+      eyebrow="CRM"
+      [showHeader]="false"
+      [columns]="followUpColumns"
+      [page]="followUps()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="sort()"
+      [trackBy]="trackById"
+      [cellTemplates]="followUpTemplates()"
+      [searchable]="false"
+      [canManage]="false"
+      emptyTitle="Nothing outstanding"
+      emptyMessage="Follow-ups are scheduled from a customer's profile."
+      [editing]="null"
+      formId="crm-form"
+      (sortChange)="onSort($event)"
+      (pageChange)="onPage($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="load()"
+    >
+      <div panelFilters class="panel-filters">
+        <label class="panel-filters__field">
+          <span class="field-label">Status</span>
+          <select class="select" (change)="onStatusFilter($event)">
+            <option value="">All statuses</option>
+            @for (status of followUpStatuses; track status.value) {
+              <option [value]="status.value" [selected]="status.value === statusFilter()">
+                {{ status.label }}
+              </option>
+            }
+          </select>
+        </label>
+
+        <label class="checkbox panel-filters__toggle">
+          <input type="checkbox" [checked]="mineOnly()" (change)="toggleMine()" />
+          <span>Only mine</span>
+        </label>
+      </div>
+    </app-master-panel>
+  }
+
+  @case ('activities') {
+    <app-master-panel
+      title="Activities"
+      eyebrow="CRM"
+      [showHeader]="false"
+      [columns]="activityColumns"
+      [page]="activities()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="null"
+      [trackBy]="trackById"
+      [cellTemplates]="activityTemplates()"
+      [searchable]="false"
+      [canManage]="false"
+      emptyTitle="No activity"
+      emptyMessage="Calls, visits and messages logged against a customer appear here."
+      [editing]="null"
+      formId="crm-form"
+      (pageChange)="onPage($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="load()"
+    />
+  }
+
+  @case ('segments') {
+    <app-master-panel
+      title="Segments"
+      eyebrow="CRM"
+      [showHeader]="false"
+      [columns]="segmentColumns"
+      [page]="segmentPage()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="sort()"
+      [trackBy]="trackById"
+      [cellTemplates]="segmentTemplates()"
+      [canManage]="canManage()"
+      createLabel="New segment"
+      searchPlaceholder="Search segments…"
+      emptyTitle="No segments"
+      emptyMessage="A segment is a rule — spend, purchases, quiet period or birthday month."
+      [editing]="creating() ? 'new' : null"
+      drawerTitle="New segment"
+      drawerSubtitle="Membership is evaluated when the segment is used, so it never goes stale."
+      formId="segment-form"
+      [saving]="saving()"
+      saveLabel="Create segment"
+      (create)="startCreate()"
+      (search)="onSearch($event)"
+      (sortChange)="onSort($event)"
+      (pageChange)="page.set($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="load()"
+      (dismiss)="close()"
+    >
+      <form [formGroup]="segmentForm" (ngSubmit)="save()" id="segment-form">
+        @if (formError(); as message) {
+          <p class="form-error">{{ message }}</p>
+        }
+        <div class="form-grid">
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="segmentForm.controls.code"
+            [submitted]="submitted()"
+            for="sg-code"
+          >
+            <input id="sg-code" class="input mono" formControlName="code" autocomplete="off" />
+          </app-form-field>
+
+          <app-form-field
+            label="Name"
+            [required]="true"
+            [control]="segmentForm.controls.name"
+            [submitted]="submitted()"
+            for="sg-name"
+          >
+            <input id="sg-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Description"
+            [control]="segmentForm.controls.description"
+            [submitted]="submitted()"
+            for="sg-desc"
+          >
+            <input id="sg-desc" class="input" formControlName="description" />
+          </app-form-field>
+        </div>
+
+        <div class="form-section">
+          <h3 class="form-section__title">Who belongs</h3>
+          <p class="muted form-note">
+            Leave a rule blank to ignore it. All the rules set must match.
+          </p>
+          <div class="form-grid">
+            <app-form-field
+              label="Loyalty tier"
+              [control]="segmentForm.controls.tierCode"
+              [submitted]="submitted()"
+              for="sg-tier"
+            >
+              <input
+                id="sg-tier"
+                class="input mono"
+                formControlName="tierCode"
+                placeholder="e.g. GOLD"
+              />
+            </app-form-field>
+
+            <app-form-field
+              label="Minimum lifetime spend"
+              [control]="segmentForm.controls.minLifetimeSpend"
+              [submitted]="submitted()"
+              for="sg-spend"
+            >
+              <input
+                id="sg-spend"
+                class="input numeric"
+                type="number"
+                step="0.01"
+                min="0"
+                formControlName="minLifetimeSpend"
+              />
+            </app-form-field>
+
+            <app-form-field
+              label="Minimum purchases"
+              [control]="segmentForm.controls.minPurchaseCount"
+              [submitted]="submitted()"
+              for="sg-purchases"
+            >
+              <input
+                id="sg-purchases"
+                class="input numeric"
+                type="number"
+                min="0"
+                formControlName="minPurchaseCount"
+              />
+            </app-form-field>
+
+            <app-form-field
+              label="Quiet for (days)"
+              hint="Nothing bought in this many days."
+              [control]="segmentForm.controls.inactiveDays"
+              [submitted]="submitted()"
+              for="sg-inactive"
+            >
+              <input
+                id="sg-inactive"
+                class="input numeric"
+                type="number"
+                min="0"
+                formControlName="inactiveDays"
+              />
+            </app-form-field>
+
+            <app-form-field
+              label="Birthday month"
+              [control]="segmentForm.controls.birthdayMonth"
+              [submitted]="submitted()"
+              for="sg-birthday"
+            >
+              <select id="sg-birthday" class="select" formControlName="birthdayMonth">
+                <option [ngValue]="null">Any month</option>
+                @for (month of months; track month; let i = $index) {
+                  <option [ngValue]="i + 1">{{ month }}</option>
+                }
+              </select>
+            </app-form-field>
+          </div>
+        </div>
+      </form>
+    </app-master-panel>
+
+    @if (memberCount() !== null) {
+      <p class="rate-note muted">
+        The segment last evaluated matches {{ memberCount() }} customer(s) right now.
+      </p>
+    }
+  }
+
+  @case ('campaigns') {
+    <app-master-panel
+      title="Campaigns"
+      eyebrow="CRM"
+      [showHeader]="false"
+      [columns]="campaignColumns"
+      [page]="campaigns()"
+      [loading]="loading()"
+      [error]="error()"
+      [sort]="sort()"
+      [trackBy]="trackById"
+      [cellTemplates]="campaignTemplates()"
+      [searchable]="false"
+      [canManage]="canManageCampaigns()"
+      createLabel="New campaign"
+      emptyTitle="No campaigns"
+      emptyMessage="A campaign reaches a segment over a date range."
+      [editing]="creating() ? 'new' : null"
+      drawerTitle="New campaign"
+      drawerSubtitle="The audience is whoever matches the segment when the campaign runs."
+      formId="campaign-form"
+      [saving]="saving()"
+      saveLabel="Create campaign"
+      (create)="startCreate()"
+      (sortChange)="onSort($event)"
+      (pageChange)="onPage($event)"
+      (sizeChange)="onSizeChange($event)"
+      (retry)="load()"
+      (dismiss)="close()"
+    >
+      <div panelFilters class="panel-filters">
+        <label class="panel-filters__field">
+          <span class="field-label">Status</span>
+          <select class="select" (change)="onStatusFilter($event)">
+            <option value="">All statuses</option>
+            @for (status of campaignStatuses; track status.value) {
+              <option [value]="status.value" [selected]="status.value === statusFilter()">
+                {{ status.label }}
+              </option>
+            }
+          </select>
+        </label>
+      </div>
+
+      <form [formGroup]="campaignForm" (ngSubmit)="save()" id="campaign-form">
+        @if (formError(); as message) {
+          <p class="form-error">{{ message }}</p>
+        }
+        <div class="form-grid">
+          <app-form-field
+            label="Code"
+            [required]="true"
+            [control]="campaignForm.controls.code"
+            [submitted]="submitted()"
+            for="cp-code"
+          >
+            <input id="cp-code" class="input mono" formControlName="code" autocomplete="off" />
+          </app-form-field>
+
+          <app-form-field
+            label="Name"
+            [required]="true"
+            [control]="campaignForm.controls.name"
+            [submitted]="submitted()"
+            for="cp-name"
+          >
+            <input id="cp-name" class="input" formControlName="name" />
+          </app-form-field>
+
+          <app-form-field
+            label="Audience"
+            hint="Leave blank to reach every customer."
+            [control]="campaignForm.controls.segmentId"
+            [submitted]="submitted()"
+            for="cp-segment"
+          >
+            <select id="cp-segment" class="select" formControlName="segmentId">
+              <option value="">Everyone</option>
+              @for (segment of segments(); track segment.id) {
+                <option [value]="segment.id">{{ segment.name }}</option>
+              }
+            </select>
+          </app-form-field>
+
+          <app-form-field
+            label="Message template"
+            [control]="campaignForm.controls.templateCode"
+            [submitted]="submitted()"
+            for="cp-template"
+          >
+            <input id="cp-template" class="input mono" formControlName="templateCode" />
+          </app-form-field>
+
+          <app-form-field
+            label="Starts"
+            [control]="campaignForm.controls.startsOn"
+            [submitted]="submitted()"
+            for="cp-starts"
+          >
+            <input id="cp-starts" class="input" type="date" formControlName="startsOn" />
+          </app-form-field>
+
+          <app-form-field
+            label="Ends"
+            [control]="campaignForm.controls.endsOn"
+            [submitted]="submitted()"
+            for="cp-ends"
+          >
+            <input id="cp-ends" class="input" type="date" formControlName="endsOn" />
+          </app-form-field>
+
+          <app-form-field
+            class="form-grid__full"
+            label="Description"
+            [control]="campaignForm.controls.description"
+            [submitted]="submitted()"
+            for="cp-desc"
+          >
+            <textarea
+              id="cp-desc"
+              class="textarea"
+              rows="3"
+              formControlName="description"
+            ></textarea>
+          </app-form-field>
+        </div>
+      </form>
+    </app-master-panel>
+  }
+}

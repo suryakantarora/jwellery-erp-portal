@@ -1,0 +1,230 @@
+<div class="calculator">
+  <section class="card calculator__inputs">
+    <h2 class="detail-section__title">Price an item</h2>
+
+    <form [formGroup]="form" (ngSubmit)="calculate()" id="calculator-form">
+      <div class="form-grid">
+        <app-form-field
+          class="form-grid__full"
+          label="Jewellery item"
+          [required]="true"
+          [control]="form.controls.jewelleryItemId"
+          [submitted]="submitted()"
+          for="calc-item"
+        >
+          <select id="calc-item" class="select" formControlName="jewelleryItemId">
+            <option value="" disabled>Select a piece</option>
+            @for (item of items(); track item.id) {
+              <option [value]="item.id">{{ itemLabel(item) }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Branch"
+          hint="Branch-specific rules apply."
+          [control]="form.controls.branchId"
+          [submitted]="submitted()"
+          for="calc-branch"
+        >
+          <select id="calc-branch" class="select" formControlName="branchId">
+            <option value="">No branch</option>
+            @for (branch of branches(); track branch.id) {
+              <option [value]="branch.id">{{ branch.name }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Customer id"
+          hint="Optional. Applies the loyalty tier's entitlement."
+          [control]="form.controls.customerId"
+          [submitted]="submitted()"
+          for="calc-customer"
+        >
+          <input
+            id="calc-customer"
+            class="input mono"
+            formControlName="customerId"
+            placeholder="UUID"
+          />
+        </app-form-field>
+
+        <app-form-field
+          label="Discount type"
+          [control]="form.controls.discountType"
+          [submitted]="submitted()"
+          for="calc-discount-type"
+        >
+          <select id="calc-discount-type" class="select" formControlName="discountType">
+            <option value="">No manual discount</option>
+            @for (type of discountTypes; track type.value) {
+              <option [value]="type.value">{{ type.label }}</option>
+            }
+          </select>
+        </app-form-field>
+
+        <app-form-field
+          label="Discount value"
+          [control]="form.controls.discountValue"
+          [submitted]="submitted()"
+          for="calc-discount-value"
+        >
+          <input
+            id="calc-discount-value"
+            class="input numeric"
+            type="number"
+            step="0.01"
+            min="0"
+            formControlName="discountValue"
+          />
+        </app-form-field>
+
+        <div class="form-grid__full">
+          <label class="checkbox">
+            <input type="checkbox" formControlName="discountApproved" />
+            <span>A manager has approved this discount</span>
+          </label>
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        class="btn btn--primary btn--block calculator__submit"
+        [disabled]="calculating()"
+      >
+        @if (calculating()) {
+          <app-spinner [size]="14" />
+        }
+        Calculate price
+      </button>
+    </form>
+
+    @if (error(); as failure) {
+      <p class="form-error calculator__error">{{ failure.message }}</p>
+      @if (needsApproval()) {
+        <p class="muted calculator__hint">
+          A manager can authorise this: tick the approval box above and calculate again.
+        </p>
+      }
+    }
+  </section>
+
+  <section class="card calculator__output">
+    @if (!breakdown()) {
+      <p class="muted calculator__placeholder">
+        Choose a piece and the engine prices it here, line by line — the same calculation that
+        settles a real sale.
+      </p>
+    } @else if (breakdown(); as price) {
+      <header class="calculator__head">
+        <div>
+          <p class="eyebrow">{{ price.itemCode }}</p>
+          <h2 class="calculator__total numeric">
+            {{ price.finalPrice | number: '1.2-2' }}
+            <span class="calculator__currency">{{ price.currency }}</span>
+          </h2>
+        </div>
+        @if (price.discountRequiresApproval) {
+          <app-status-badge tone="warning" label="Needs approval" />
+        }
+      </header>
+
+      <table class="breakdown">
+        <tbody>
+          <tr>
+            <th scope="row">Metal value</th>
+            <td class="breakdown__note">
+              {{ price.netMetalWeight | number: '1.0-3' }} g ×
+              {{ price.metalRatePerUnit | number: '1.0-2' }}
+            </td>
+            <td class="numeric">{{ price.metalValue | number: '1.2-2' }}</td>
+          </tr>
+
+          <tr>
+            <th scope="row">Wastage</th>
+            <td class="breakdown__note">
+              {{ price.wastagePercentage | number: '1.0-2' }}% ·
+              {{ price.wastageWeight | number: '1.0-3' }} g
+            </td>
+            <td class="numeric">{{ price.wastageValue | number: '1.2-2' }}</td>
+          </tr>
+
+          <tr>
+            <th scope="row">Making charge</th>
+            <td class="breakdown__note">
+              {{ price.makingChargeRuleCode ?? 'Product default' }}
+              @if (price.makingChargeType) {
+                · {{ price.makingChargeType }} {{ price.makingChargeValue | number: '1.0-2' }}
+              }
+            </td>
+            <td class="numeric">{{ price.makingCharge | number: '1.2-2' }}</td>
+          </tr>
+
+          <tr>
+            <th scope="row">Stone value</th>
+            <td class="breakdown__note"></td>
+            <td class="numeric">{{ price.stoneValue | number: '1.2-2' }}</td>
+          </tr>
+
+          <tr class="breakdown__subtotal">
+            <th scope="row">Sub-total</th>
+            <td></td>
+            <td class="numeric">{{ price.subTotal | number: '1.2-2' }}</td>
+          </tr>
+
+          @for (tax of addedTaxes(); track tax.code) {
+            <tr>
+              <th scope="row">{{ tax.name }}</th>
+              <td class="breakdown__note">{{ tax.percentage | number: '1.0-2' }}%</td>
+              <td class="numeric">{{ tax.amount | number: '1.2-2' }}</td>
+            </tr>
+          }
+
+          @if (price.tierDiscountAmount) {
+            <tr class="breakdown__credit">
+              <th scope="row">Loyalty discount</th>
+              <td class="breakdown__note">
+                {{ price.loyaltyTierCode }} · {{ price.tierDiscountPercentage | number: '1.0-2' }}%
+              </td>
+              <td class="numeric">−{{ price.tierDiscountAmount | number: '1.2-2' }}</td>
+            </tr>
+          }
+
+          @if (price.manualDiscountAmount) {
+            <tr class="breakdown__credit">
+              <th scope="row">Manual discount</th>
+              <td class="breakdown__note">
+                {{ price.discountRequiresApproval ? 'Above the unaided limit' : 'Within policy' }}
+              </td>
+              <td class="numeric">−{{ price.manualDiscountAmount | number: '1.2-2' }}</td>
+            </tr>
+          }
+
+          <tr class="breakdown__final">
+            <th scope="row">Final selling price</th>
+            <td></td>
+            <td class="numeric">{{ price.finalPrice | number: '1.2-2' }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      @if (inclusiveTaxes().length > 0) {
+        <p class="muted breakdown__footnote">
+          Includes
+          @for (tax of inclusiveTaxes(); track tax.code) {
+            {{ tax.name }} {{ tax.amount | number: '1.2-2' }}{{ $last ? '' : ', ' }}
+          }
+          already in the price above.
+        </p>
+      }
+
+      @if (price.discountRequiresApproval) {
+        <p class="breakdown__approval">
+          This discount exceeds what a salesperson may give unaided. A manager must approve it
+          before the price can be used, and the approval is recorded against the sale.
+        </p>
+      }
+    }
+  </section>
+</div>

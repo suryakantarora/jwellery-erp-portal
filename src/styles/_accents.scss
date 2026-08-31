@@ -1,0 +1,242 @@
+// ---------------------------------------------------------------------------
+// Accent palettes.
+//
+// The portal serves several institutions from one deployment, so the brand ramp
+// is swappable at runtime: `data-accent` on the root element re-points
+// `--brand-50` … `--brand-900`, and every component follows because none of
+// them names a colour directly.
+//
+// Each palette comes from five supplied colours — a primary, two tints, a
+// near-white and a dark companion. The ten-step ramp the app needs is
+// interpolated between those anchors so the supplied values land on the steps
+// that actually show them:
+//
+//   --brand-50   the near-white          --brand-400  the light tone
+//   --brand-200  the lighter tint        --brand-600  the primary
+//
+// Steps 700–900 are darkened from the primary, and `--brand-ink` keeps the
+// palette's dark companion for deep surfaces such as the sign-in panel.
+//
+// Two values are solved rather than chosen, so no palette can ship an illegible
+// button:
+//
+//   --text-on-accent  emitted only where white fails on the primary. A solid
+//                     Bright Yellow or Teal button needs dark text, and the same
+//                     ink is correct in dark mode, where the accent is a tint.
+//   --brand-300       the dark theme's accent, lightened where needed so the
+//                     text painted on it clears contrast.
+//
+// Every palette clears WCAG AA (4.5:1) for its button label in both themes.
+// Regenerated values belong here rather than being hand-tuned per component.
+// ---------------------------------------------------------------------------
+
+@mixin accent-modern-purple {
+  // Modern Purple — creative, modern, premium.
+  --brand-50: #f5f3ff;
+  --brand-100: #dcd4fe;
+  --brand-200: #c4b5fd;
+  --brand-300: #a888fa;
+  --brand-400: #8b5cf6;
+  --brand-500: #7c42e8;
+  --brand-600: #6d28d9;
+  --brand-700: #5921b2;
+  --brand-800: #461a8b;
+  --brand-900: #311262;
+  --brand-ink: #1f2937;
+  --accent-ring: rgb(109 40 217 / 30%);
+}
+
+@mixin accent-ocean-breeze {
+  // Ocean Breeze — calm, fresh, trustworthy.
+  --brand-50: #e0f2fe;
+  --brand-100: #cdecfe;
+  --brand-200: #bae6fd;
+  --brand-300: #79d2fa;
+  --brand-400: #38bdf8;
+  --brand-500: #23b1f0;
+  --brand-600: #0ea5e9;
+  --brand-700: #0b87bf;
+  --brand-800: #096a95;
+  --brand-900: #064a69;
+  --brand-ink: #0f172a;
+  --accent-ring: rgb(14 165 233 / 30%);
+  --text-on-accent: #05364d;
+}
+
+@mixin accent-nature-green {
+  // Nature Green — natural, balanced, calm.
+  --brand-50: #f0fdf4;
+  --brand-100: #d6fae2;
+  --brand-200: #bbf7d0;
+  --brand-300: #82eaa8;
+  --brand-400: #4ade80;
+  --brand-500: #30c065;
+  --brand-600: #16a34a;
+  --brand-700: #12863d;
+  --brand-800: #0e682f;
+  --brand-900: #0a4921;
+  --brand-ink: #14532d;
+  --accent-ring: rgb(22 163 74 / 30%);
+  --text-on-accent: #062e15;
+}
+
+@mixin accent-sunset-vibes {
+  // Sunset Vibes — warm, energetic, friendly.
+  --brand-50: #fff7ed;
+  --brand-100: #fed8b0;
+  --brand-200: #fdba74;
+  --brand-300: #fca658;
+  --brand-400: #fb923c;
+  --brand-500: #fa8229;
+  --brand-600: #f97316;
+  --brand-700: #cc5e12;
+  --brand-800: #9f4a0e;
+  --brand-900: #70340a;
+  --brand-ink: #7c2d12;
+  --accent-ring: rgb(249 115 22 / 30%);
+  --text-on-accent: #522607;
+}
+
+@mixin accent-blush-pink {
+  // Blush Pink — soft, feminine, elegant.
+  --brand-50: #fdf2f8;
+  --brand-100: #fce0f0;
+  --brand-200: #fbcfe8;
+  --brand-300: #f8a0cf;
+  --brand-400: #f472b6;
+  --brand-500: #f05da8;
+  --brand-600: #ec4899;
+  --brand-700: #c23b7d;
+  --brand-800: #972e62;
+  --brand-900: #6a2045;
+  --brand-ink: #831843;
+  --accent-ring: rgb(236 72 153 / 30%);
+  --text-on-accent: #3d1328;
+}
+
+@mixin accent-deep-blue {
+  // Deep Blue — professional, strong, reliable.
+  --brand-50: #eff6ff;
+  --brand-100: #c1defe;
+  --brand-200: #93c5fd;
+  --brand-300: #5c94f4;
+  --brand-400: #2563eb;
+  --brand-500: #224eba;
+  --brand-600: #1e3a8a;
+  --brand-700: #193071;
+  --brand-800: #132558;
+  --brand-900: #0e1a3e;
+  --brand-ink: #0b1220;
+  --accent-ring: rgb(30 58 138 / 30%);
+}
+
+@mixin accent-bright-yellow {
+  // Bright Yellow — cheerful, optimistic, bold.
+  --brand-50: #fffbeb;
+  --brand-100: #fef0ba;
+  --brand-200: #fde68a;
+  --brand-300: #fcd950;
+  --brand-400: #facc15;
+  --brand-500: #f2c00e;
+  --brand-600: #eab308;
+  --brand-700: #c09307;
+  --brand-800: #967305;
+  --brand-900: #695104;
+  --brand-ink: #713f12;
+  --accent-ring: rgb(234 179 8 / 30%);
+  --text-on-accent: #5e4803;
+}
+
+@mixin accent-teal-harmony {
+  // Teal Harmony — modern, clean, balanced.
+  --brand-50: #ecfeff;
+  --brand-100: #c2faf2;
+  --brand-200: #99f6e4;
+  --brand-300: #63e5d2;
+  --brand-400: #2dd4bf;
+  --brand-500: #20c6b2;
+  --brand-600: #14b8a6;
+  --brand-700: #109788;
+  --brand-800: #0d766a;
+  --brand-900: #09534b;
+  --brand-ink: #134e4a;
+  --accent-ring: rgb(20 184 166 / 30%);
+  --text-on-accent: #07423c;
+}
+
+@mixin accent-royal-dark {
+  // Royal Dark — luxury, elegant, sophisticated.
+  --brand-50: #ede9fe;
+  --brand-100: #cabafc;
+  --brand-200: #a78bfa;
+  --brand-300: #966aec;
+  --brand-400: #6d28d9;
+  --brand-500: #5c22b7;
+  --brand-600: #4c1d95;
+  --brand-700: #3e187a;
+  --brand-800: #31135f;
+  --brand-900: #220d43;
+  --brand-ink: #111827;
+  --accent-ring: rgb(76 29 149 / 30%);
+}
+
+@mixin accent-minimal-neutral {
+  // Minimal Neutral — clean, simple, timeless.
+  --brand-50: #f3f4f6;
+  --brand-100: #e2e4e8;
+  --brand-200: #d1d5db;
+  --brand-300: #9ea4ae;
+  --brand-400: #6b7280;
+  --brand-500: #515a68;
+  --brand-600: #374151;
+  --brand-700: #2d3542;
+  --brand-800: #232a34;
+  --brand-900: #191d24;
+  --brand-ink: #111827;
+  --accent-ring: rgb(55 65 81 / 30%);
+}
+
+// The default palette when no institution has chosen one.
+:root {
+  @include accent-modern-purple;
+}
+
+:root[data-accent='modern-purple'] {
+  @include accent-modern-purple;
+}
+
+:root[data-accent='ocean-breeze'] {
+  @include accent-ocean-breeze;
+}
+
+:root[data-accent='nature-green'] {
+  @include accent-nature-green;
+}
+
+:root[data-accent='sunset-vibes'] {
+  @include accent-sunset-vibes;
+}
+
+:root[data-accent='blush-pink'] {
+  @include accent-blush-pink;
+}
+
+:root[data-accent='deep-blue'] {
+  @include accent-deep-blue;
+}
+
+:root[data-accent='bright-yellow'] {
+  @include accent-bright-yellow;
+}
+
+:root[data-accent='teal-harmony'] {
+  @include accent-teal-harmony;
+}
+
+:root[data-accent='royal-dark'] {
+  @include accent-royal-dark;
+}
+
+:root[data-accent='minimal-neutral'] {
+  @include accent-minimal-neutral;
+}

@@ -1,0 +1,365 @@
+<app-page-header
+  title="Users"
+  eyebrow="Users & Access"
+  description="Staff accounts, the roles they hold and the branches they may work in."
+>
+  @if (canManage()) {
+    <button type="button" class="btn btn--primary" (click)="startCreate()">New user</button>
+  }
+</app-page-header>
+
+<section class="list-card">
+  <div class="list-toolbar">
+    <app-search-box placeholder="Search name, username, employee ID…" (search)="onSearch($event)" />
+    <div class="list-toolbar__actions">
+      <button type="button" class="btn btn--ghost btn--sm" (click)="load()" [disabled]="loading()">
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <app-filter-panel [activeCount]="activeFilterCount()" (clear)="clearFilters()">
+    <label class="field-label" for="user-branch-filter">Branch</label>
+    <select
+      id="user-branch-filter"
+      class="select"
+      [value]="branchFilter()"
+      (change)="onBranchFilter($event)"
+    >
+      <option value="">All branches</option>
+      @for (branch of branches(); track branch.id) {
+        <option [value]="branch.id" [selected]="branch.id === branchFilter()">
+          {{ branch.name }}
+        </option>
+      }
+    </select>
+  </app-filter-panel>
+
+  <app-data-table
+    [columns]="columns"
+    [rows]="result().content"
+    [loading]="loading()"
+    [error]="error()"
+    [sort]="sort()"
+    [trackBy]="trackById"
+    [rowClickable]="true"
+    emptyTitle="No users"
+    emptyMessage="Create a staff account to give someone access."
+    (sortChange)="onSort($event)"
+    (rowClick)="startEdit($event)"
+    (retry)="load()"
+  >
+    <ng-template appCell="fullName" [appCellOf]="result().content" let-row>
+      <span class="cell-stack">
+        <span class="cell-stack__primary">{{ row.fullName }}</span>
+        <span class="cell-stack__secondary mono">{{ row.username }}</span>
+      </span>
+    </ng-template>
+
+    <ng-template appCell="contact" [appCellOf]="result().content" let-row>
+      <span class="cell-stack">
+        <span>{{ row.email || '—' }}</span>
+        @if (row.phone) {
+          <span class="cell-stack__secondary">{{ row.phone }}</span>
+        }
+      </span>
+    </ng-template>
+
+    <ng-template appCell="roles" [appCellOf]="result().content" let-row>
+      @if (row.roles.length === 0) {
+        <span class="muted">—</span>
+      } @else {
+        <span class="chip-row">
+          @for (role of row.roles; track role) {
+            <span class="chip">{{ role }}</span>
+          }
+        </span>
+      }
+    </ng-template>
+
+    <ng-template appCell="primaryBranchId" [appCellOf]="result().content" let-row>
+      {{ branchName(row.primaryBranchId) }}
+    </ng-template>
+
+    <ng-template appCell="status" [appCellOf]="result().content" let-row>
+      <app-status-badge [status]="row.status" />
+    </ng-template>
+
+    <ng-template appCell="lastLoginAt" [appCellOf]="result().content" let-row>
+      {{ row.lastLoginAt | relativeTime }}
+    </ng-template>
+
+    <ng-template appCell="actions" [appCellOf]="result().content" let-row>
+      <span class="list-actions">
+        <button
+          type="button"
+          class="btn btn--ghost btn--sm"
+          (click)="startEdit(row); $event.stopPropagation()"
+        >
+          {{ canManage() ? 'Edit' : 'View' }}
+        </button>
+        @if (canManage()) {
+          <button
+            type="button"
+            class="btn btn--ghost btn--sm"
+            (click)="startReset(row); $event.stopPropagation()"
+          >
+            Reset password
+          </button>
+          @if (row.status === 'ACTIVE') {
+            <button
+              type="button"
+              class="btn btn--danger-ghost btn--sm"
+              (click)="deactivate(row); $event.stopPropagation()"
+            >
+              Deactivate
+            </button>
+          }
+        }
+      </span>
+    </ng-template>
+  </app-data-table>
+
+  <app-pagination
+    [page]="result().page"
+    [size]="result().size"
+    [totalElements]="result().totalElements"
+    [totalPages]="result().totalPages"
+    (pageChange)="onPage($event)"
+    (sizeChange)="onSizeChange($event)"
+  />
+</section>
+
+@if (editing(); as target) {
+  <app-drawer
+    eyebrow="Users & Access"
+    [title]="target === 'new' ? 'New user' : target.fullName"
+    [subtitle]="target === 'new' ? 'Create a staff account.' : target.username"
+    size="lg"
+    [closeOnBackdrop]="false"
+    (dismiss)="close()"
+  >
+    <form [formGroup]="form" (ngSubmit)="save()" id="user-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+
+      <div class="form-section">
+        <div class="form-grid">
+          <app-form-field
+            label="Username"
+            [required]="true"
+            [hint]="target === 'new' ? '' : 'The username cannot be changed.'"
+            [control]="form.controls.username"
+            [submitted]="submitted()"
+            for="user-username"
+          >
+            <input
+              id="user-username"
+              class="input mono"
+              formControlName="username"
+              autocomplete="off"
+            />
+          </app-form-field>
+
+          @if (target === 'new') {
+            <app-form-field
+              label="Initial password"
+              [required]="true"
+              hint="At least 10 characters. The user is asked to change it."
+              [control]="form.controls.password"
+              [submitted]="submitted()"
+              for="user-password"
+            >
+              <input
+                id="user-password"
+                class="input"
+                type="password"
+                formControlName="password"
+                autocomplete="new-password"
+              />
+            </app-form-field>
+          } @else {
+            <app-form-field
+              label="Status"
+              [required]="true"
+              [control]="form.controls.status"
+              [submitted]="submitted()"
+              for="user-status"
+            >
+              <select id="user-status" class="select" formControlName="status">
+                @for (status of statuses; track status.value) {
+                  <option [value]="status.value">{{ status.label }}</option>
+                }
+              </select>
+            </app-form-field>
+          }
+
+          <app-form-field
+            label="Full name"
+            [required]="true"
+            [control]="form.controls.fullName"
+            [submitted]="submitted()"
+            for="user-name"
+          >
+            <input id="user-name" class="input" formControlName="fullName" />
+          </app-form-field>
+
+          <app-form-field
+            label="Employee ID"
+            [control]="form.controls.employeeCode"
+            [submitted]="submitted()"
+            for="user-employee"
+          >
+            <input id="user-employee" class="input mono" formControlName="employeeCode" />
+          </app-form-field>
+
+          <app-form-field
+            label="Email"
+            [control]="form.controls.email"
+            [submitted]="submitted()"
+            for="user-email"
+          >
+            <input id="user-email" class="input" type="email" formControlName="email" />
+          </app-form-field>
+
+          <app-form-field
+            label="Phone"
+            [control]="form.controls.phone"
+            [submitted]="submitted()"
+            for="user-phone"
+          >
+            <input id="user-phone" class="input" formControlName="phone" />
+          </app-form-field>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3 class="form-section__title">Roles</h3>
+        @if (roles().length === 0) {
+          <p class="muted">No roles are defined yet.</p>
+        } @else {
+          <div class="option-list">
+            @for (role of roles(); track role.id) {
+              <label class="option-list__item">
+                <input
+                  type="checkbox"
+                  [checked]="isRoleSelected(role.id)"
+                  [disabled]="!canManage()"
+                  (change)="toggleRole(role.id)"
+                />
+                <span class="option-list__label">
+                  <span>{{ role.name }}</span>
+                  <span class="option-list__hint">
+                    {{ role.description || (role.superAdmin ? 'Unrestricted access' : role.code) }}
+                  </span>
+                </span>
+              </label>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="form-section">
+        <h3 class="form-section__title">Branches</h3>
+        @if (branches().length === 0) {
+          <p class="muted">No branches are defined yet.</p>
+        } @else {
+          <div class="option-list">
+            @for (branch of branches(); track branch.id) {
+              <label class="option-list__item">
+                <input
+                  type="checkbox"
+                  [checked]="isBranchSelected(branch.id)"
+                  [disabled]="!canManage()"
+                  (change)="toggleBranch(branch.id)"
+                />
+                <span class="option-list__label">
+                  <span>{{ branch.name }}</span>
+                  <span class="option-list__hint mono">{{ branch.code }}</span>
+                </span>
+              </label>
+            }
+          </div>
+
+          <app-form-field
+            label="Primary branch"
+            hint="Where the user is placed by default when they sign in."
+            [control]="form.controls.primaryBranchId"
+            [submitted]="submitted()"
+            for="user-primary-branch"
+          >
+            <select id="user-primary-branch" class="select" formControlName="primaryBranchId">
+              <option value="">No primary branch</option>
+              @for (branch of primaryBranchOptions(); track branch.id) {
+                <option [value]="branch.id">{{ branch.name }}</option>
+              }
+            </select>
+          </app-form-field>
+        }
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">
+        {{ canManage() ? 'Cancel' : 'Close' }}
+      </button>
+      @if (canManage()) {
+        <button type="submit" form="user-form" class="btn btn--primary" [disabled]="saving()">
+          @if (saving()) {
+            <app-spinner [size]="14" />
+          }
+          {{ target === 'new' ? 'Create user' : 'Save changes' }}
+        </button>
+      }
+    </ng-container>
+  </app-drawer>
+}
+
+@if (resetTarget(); as user) {
+  <app-modal
+    title="Reset password"
+    [subtitle]="user.fullName + ' (' + user.username + ')'"
+    size="sm"
+    [closeOnBackdrop]="false"
+    (dismiss)="cancelReset()"
+  >
+    <form [formGroup]="resetForm" (ngSubmit)="submitReset()" id="reset-form">
+      @if (resetError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+
+      <app-form-field
+        label="New password"
+        [required]="true"
+        hint="At least 10 characters. Share it over a secure channel."
+        [control]="resetForm.controls.newPassword"
+        [submitted]="resetSubmitted()"
+        for="reset-password"
+      >
+        <input
+          id="reset-password"
+          class="input"
+          type="password"
+          formControlName="newPassword"
+          autocomplete="new-password"
+        />
+      </app-form-field>
+
+      <label class="checkbox">
+        <input type="checkbox" formControlName="mustChangePassword" />
+        <span>Require a change at next sign-in</span>
+      </label>
+    </form>
+
+    <ng-container modalFooter>
+      <button type="button" class="btn btn--ghost" (click)="cancelReset()">Cancel</button>
+      <button type="submit" form="reset-form" class="btn btn--primary" [disabled]="resetting()">
+        @if (resetting()) {
+          <app-spinner [size]="14" />
+        }
+        Reset password
+      </button>
+    </ng-container>
+  </app-modal>
+}

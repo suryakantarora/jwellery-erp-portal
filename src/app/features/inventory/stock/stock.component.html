@@ -1,0 +1,169 @@
+<app-page-header [title]="title()" eyebrow="Inventory" [description]="description()">
+  <label class="visually-hidden" for="stock-branch">Branch</label>
+  <select id="stock-branch" class="select stock-branch" (change)="onBranchChange($event)">
+    <option value="">All branches</option>
+    @for (branch of branches(); track branch.id) {
+      <option [value]="branch.id" [selected]="branch.id === branchFilter()">
+        {{ branch.name }}
+      </option>
+    }
+  </select>
+  <button type="button" class="btn btn--ghost" [disabled]="loading()" (click)="load()">
+    Refresh
+  </button>
+</app-page-header>
+
+@if (loading() && !valuation()) {
+  <app-loading-state label="Calculating stock position…" />
+} @else if (error(); as failure) {
+  <app-error-state [error]="failure" (retry)="load()" />
+} @else if (valuation(); as report) {
+  <section class="metric-row">
+    <article class="card kpi">
+      <p class="kpi__label">Pieces on hand</p>
+      <p class="kpi__value">{{ report.itemCount | number }}</p>
+    </article>
+    <article class="card kpi">
+      <p class="kpi__label">Net metal weight</p>
+      <p class="kpi__value">{{ report.totalNetMetalWeight | number: '1.0-3' }} g</p>
+    </article>
+    <article class="card kpi">
+      <p class="kpi__label">Stock at cost</p>
+      <p class="kpi__value">{{ report.totalCost | number: '1.0-2' }}</p>
+    </article>
+    <article class="card kpi kpi--accent">
+      <p class="kpi__label">Metal value at today’s rate</p>
+      <p class="kpi__value">{{ report.totalMetalValueAtToday | number: '1.0-2' }}</p>
+      <p class="kpi__note">As of {{ report.asOf }}</p>
+    </article>
+  </section>
+
+  <div class="report-grid">
+    <section class="card detail-section">
+      <h2 class="detail-section__title">By location</h2>
+      @if (report.byLocation.length === 0) {
+        <p class="muted">No stock is held anywhere yet.</p>
+      } @else {
+        <div class="table-scroll">
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>Location</th>
+                <th class="align-end">Pieces</th>
+                <th class="align-end">Net weight</th>
+                <th class="align-end">Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of report.byLocation; track row.locationId) {
+                <tr>
+                  <td>
+                    <span class="cell-stack">
+                      <span class="cell-stack__primary">{{ row.locationName }}</span>
+                      <span class="cell-stack__secondary mono">{{ row.locationCode }}</span>
+                    </span>
+                  </td>
+                  <td class="align-end numeric">{{ row.itemCount | number }}</td>
+                  <td class="align-end numeric">{{ row.netWeight | number: '1.0-3' }} g</td>
+                  <td class="align-end numeric">{{ row.totalCost | number: '1.0-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+
+    <section class="card detail-section">
+      <h2 class="detail-section__title">By metal and purity</h2>
+      @if (report.byMetal.length === 0) {
+        <p class="muted">Nothing to value.</p>
+      } @else {
+        <div class="table-scroll">
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>Metal</th>
+                <th class="align-end">Pieces</th>
+                <th class="align-end">Net weight</th>
+                <th class="align-end">Rate</th>
+                <th class="align-end">Metal value</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of report.byMetal; track row.metalId + row.purityCode) {
+                <tr>
+                  <td class="mono">{{ row.metalCode }} {{ row.purityCode }}</td>
+                  <td class="align-end numeric">{{ row.itemCount | number }}</td>
+                  <td class="align-end numeric">{{ row.netWeight | number: '1.0-3' }} g</td>
+                  <td class="align-end numeric">
+                    {{ row.ratePerUnit ? (row.ratePerUnit | number: '1.0-2') : 'No rate' }}
+                  </td>
+                  <td class="align-end numeric">{{ row.metalValue | number: '1.0-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <p class="muted detail-note">
+          A row without a rate is stock the board cannot price today — publish a rate for that metal
+          and purity and the value appears.
+        </p>
+      }
+    </section>
+
+    <section class="card detail-section">
+      <h2 class="detail-section__title">By status</h2>
+      @if (report.byStatus.length === 0) {
+        <p class="muted">Nothing on hand.</p>
+      } @else {
+        <ul class="status-list">
+          @for (row of report.byStatus; track row.status) {
+            <li class="status-row">
+              <app-status-badge [status]="row.status" />
+              <span class="numeric status-row__count">{{ row.itemCount | number }}</span>
+              <span class="numeric muted">{{ row.totalCost | number: '1.0-2' }}</span>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    @if (ageing(); as age) {
+      <section class="card detail-section">
+        <h2 class="detail-section__title">Stock ageing</h2>
+        @if (age.totalItems === 0) {
+          <p class="muted">No sellable stock to age.</p>
+        } @else {
+          <ul class="ageing">
+            @for (bucket of age.buckets; track bucket.label) {
+              <li class="ageing__row">
+                <span class="ageing__label">{{ bucket.label }}</span>
+                <span class="ageing__bar" aria-hidden="true">
+                  <span class="ageing__fill" [style.width]="barWidth(bucket.itemCount)"></span>
+                </span>
+                <span class="ageing__count numeric">{{ bucket.itemCount | number }}</span>
+                <span class="ageing__cost numeric muted">{{
+                  bucket.totalCost | number: '1.0-0'
+                }}</span>
+              </li>
+            }
+          </ul>
+
+          @if (age.oldestItems.length > 0) {
+            <h3 class="ageing__subtitle">Longest held</h3>
+            <ul class="line-list">
+              @for (item of age.oldestItems; track item.itemId) {
+                <li class="line">
+                  <span class="mono">{{ item.itemCode }}</span>
+                  <span class="numeric muted">{{ item.daysInStock }} days</span>
+                  <span class="numeric muted">{{ item.totalCost | number: '1.0-0' }}</span>
+                </li>
+              }
+            </ul>
+          }
+        }
+      </section>
+    }
+  </div>
+}

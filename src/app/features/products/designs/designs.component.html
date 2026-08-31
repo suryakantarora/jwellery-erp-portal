@@ -1,0 +1,191 @@
+<ng-template #statusCell let-row>
+  <app-status-badge [status]="row.status" />
+</ng-template>
+
+<ng-template #weightCell let-row>
+  @if (row.nominalGrossWeight) {
+    <span class="numeric">{{ row.nominalGrossWeight }} g</span>
+  } @else {
+    <span class="muted">—</span>
+  }
+</ng-template>
+
+<app-master-panel
+  title="Designs"
+  eyebrow="Products"
+  description="The drawings products are made from. One design can be realised as several SKUs."
+  [columns]="columns"
+  [page]="result()"
+  [loading]="loading()"
+  [error]="error()"
+  [sort]="sort()"
+  [trackBy]="trackById"
+  [cellTemplates]="templates()"
+  [canManage]="canCreate()"
+  [editable]="editable()"
+  createLabel="New design"
+  searchPlaceholder="Search design code or name…"
+  emptyTitle="No designs"
+  emptyMessage="Record a design before creating the products made from it."
+  [editing]="editing()"
+  [drawerTitle]="editing() === 'new' ? 'New design' : editingName()"
+  drawerSubtitle="Weight here is nominal — the finished piece is weighed on receipt."
+  drawerSize="lg"
+  formId="design-form"
+  [saving]="saving()"
+  [saveLabel]="editing() === 'new' ? 'Create design' : 'Save changes'"
+  (create)="startCreate()"
+  (rowClick)="startEdit($event)"
+  (search)="onSearch($event)"
+  (sortChange)="onSort($event)"
+  (pageChange)="onPage($event)"
+  (sizeChange)="onSizeChange($event)"
+  (retry)="load()"
+  (dismiss)="close()"
+>
+  <div panelFilters class="panel-filters">
+    <label class="panel-filters__field">
+      <span class="field-label">Collection</span>
+      <select class="select" (change)="onCollectionFilter($event)">
+        <option value="">All collections</option>
+        @for (option of collections(); track option.id) {
+          <option [value]="option.id" [selected]="option.id === collectionFilter()">
+            {{ option.name }}
+          </option>
+        }
+      </select>
+    </label>
+
+    <label class="panel-filters__field">
+      <span class="field-label">Product type</span>
+      <select class="select" (change)="onTypeFilter($event)">
+        <option value="">All types</option>
+        @for (option of types(); track option.id) {
+          <option [value]="option.id" [selected]="option.id === typeFilter()">
+            {{ option.name }}
+          </option>
+        }
+      </select>
+    </label>
+
+    @if (activeFilterCount() > 0) {
+      <button type="button" class="btn btn--ghost btn--sm" (click)="clearFilters()">
+        Clear filters
+      </button>
+    }
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="save()" id="design-form">
+    @if (formError(); as message) {
+      <p class="form-error">{{ message }}</p>
+    }
+    <div class="form-grid">
+      <app-form-field
+        label="Design code"
+        [required]="true"
+        [control]="form.controls.designCode"
+        [submitted]="submitted()"
+        for="design-code"
+      >
+        <input
+          id="design-code"
+          class="input mono"
+          formControlName="designCode"
+          autocomplete="off"
+        />
+      </app-form-field>
+
+      <app-form-field
+        label="Name"
+        [required]="true"
+        [control]="form.controls.name"
+        [submitted]="submitted()"
+        for="design-name"
+      >
+        <input id="design-name" class="input" formControlName="name" />
+      </app-form-field>
+
+      <app-form-field
+        label="Product type"
+        [control]="form.controls.productTypeId"
+        [submitted]="submitted()"
+        for="design-type"
+      >
+        <select id="design-type" class="select" formControlName="productTypeId">
+          <option value="">No type</option>
+          @for (option of types(); track option.id) {
+            <option [value]="option.id">{{ option.name }}</option>
+          }
+        </select>
+      </app-form-field>
+
+      <app-form-field
+        label="Collection"
+        [control]="form.controls.collectionId"
+        [submitted]="submitted()"
+        for="design-collection"
+      >
+        <select id="design-collection" class="select" formControlName="collectionId">
+          <option value="">No collection</option>
+          @for (option of collections(); track option.id) {
+            <option [value]="option.id">{{ option.name }}</option>
+          }
+        </select>
+      </app-form-field>
+
+      <app-form-field
+        label="Brand"
+        [control]="form.controls.brandId"
+        [submitted]="submitted()"
+        for="design-brand"
+      >
+        <select id="design-brand" class="select" formControlName="brandId">
+          <option value="">No brand</option>
+          @for (option of brands(); track option.id) {
+            <option [value]="option.id">{{ option.name }}</option>
+          }
+        </select>
+      </app-form-field>
+
+      <app-form-field
+        label="Designer"
+        [control]="form.controls.designer"
+        [submitted]="submitted()"
+        for="design-designer"
+      >
+        <input id="design-designer" class="input" formControlName="designer" />
+      </app-form-field>
+
+      <app-form-field
+        label="Nominal gross weight (g)"
+        [control]="form.controls.nominalGrossWeight"
+        [submitted]="submitted()"
+        for="design-weight"
+      >
+        <input
+          id="design-weight"
+          class="input numeric"
+          type="number"
+          step="0.001"
+          min="0"
+          formControlName="nominalGrossWeight"
+        />
+      </app-form-field>
+
+      <app-form-field
+        class="form-grid__full"
+        label="Description"
+        [control]="form.controls.description"
+        [submitted]="submitted()"
+        for="design-desc"
+      >
+        <textarea
+          id="design-desc"
+          class="textarea"
+          rows="3"
+          formControlName="description"
+        ></textarea>
+      </app-form-field>
+    </div>
+  </form>
+</app-master-panel>

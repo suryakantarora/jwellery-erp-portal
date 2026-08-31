@@ -1,0 +1,212 @@
+// ---------------------------------------------------------------------------
+// Design tokens.
+//
+// Every colour, radius, shadow and spacing step used by the portal is declared
+// here as a CSS custom property. Components must never hardcode a colour: the
+// light and dark themes swap these values, and the primary accent is meant to
+// be re-pointed per deployment without touching component styles.
+// ---------------------------------------------------------------------------
+
+:root {
+  color-scheme: light;
+
+  // The brand ramp (--brand-50 … --brand-900) and --accent-ring are declared in
+  // _accents.scss, which swaps them per institution. Everything below derives
+  // from that ramp rather than naming a colour.
+
+  // --- neutral ramp --------------------------------------------------------
+  --neutral-0: #ffffff;
+  --neutral-25: #fcfcfb;
+  --neutral-50: #f7f7f5;
+  --neutral-100: #efeeea;
+  --neutral-200: #e2e0da;
+  --neutral-300: #cbc8bf;
+  --neutral-400: #a5a199;
+  --neutral-500: #7d7972;
+  --neutral-600: #5c5852;
+  --neutral-700: #43403b;
+  --neutral-800: #2c2a26;
+  --neutral-900: #1c1a17;
+  --neutral-950: #11100e;
+
+  // --- semantic surfaces ---------------------------------------------------
+  --surface-canvas: #f6f5f2;
+  --surface-raised: var(--neutral-0);
+  --surface-sunken: var(--neutral-50);
+  --surface-overlay: var(--neutral-0);
+  --surface-inverted: var(--neutral-900);
+  --surface-hover: rgb(0 0 0 / 3.5%);
+  --surface-active: rgb(0 0 0 / 6%);
+  --surface-scrim: rgb(28 26 23 / 45%);
+
+  --border-subtle: var(--neutral-200);
+  --border-strong: var(--neutral-300);
+  --border-focus: var(--brand-500);
+
+  --text-primary: var(--neutral-900);
+  --text-secondary: var(--neutral-600);
+  --text-muted: var(--neutral-500);
+  --text-inverted: var(--neutral-0);
+  --text-on-accent: #ffffff;
+
+  --accent: var(--brand-600);
+  --accent-hover: var(--brand-700);
+  --accent-active: var(--brand-800);
+  --accent-soft: var(--brand-100);
+  --accent-soft-text: var(--brand-800);
+
+  // --- status --------------------------------------------------------------
+  --success: #2f7a4f;
+  --success-soft: #e2f2e8;
+  --success-text: #1e5334;
+  --warning: #b4791f;
+  --warning-soft: #fbeed6;
+  --warning-text: #7a5010;
+  --danger: #b3352f;
+  --danger-soft: #fae4e2;
+  --danger-text: #7d2320;
+  --info: #2a5f8f;
+  --info-soft: #e0ecf7;
+  --info-text: #1c4262;
+  --neutral-soft: var(--neutral-100);
+  --neutral-soft-text: var(--neutral-700);
+
+  // --- elevation -----------------------------------------------------------
+  --shadow-xs: 0 1px 2px rgb(28 26 23 / 6%);
+  --shadow-sm: 0 1px 3px rgb(28 26 23 / 8%), 0 1px 2px rgb(28 26 23 / 4%);
+  --shadow-md: 0 4px 12px rgb(28 26 23 / 8%), 0 1px 3px rgb(28 26 23 / 5%);
+  --shadow-lg: 0 12px 32px rgb(28 26 23 / 12%), 0 4px 8px rgb(28 26 23 / 6%);
+  --shadow-xl: 0 24px 56px rgb(28 26 23 / 18%);
+
+  // --- geometry ------------------------------------------------------------
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  // --- typography ----------------------------------------------------------
+  --font-sans:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-display: 'Cormorant Garamond', 'Iowan Old Style', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.9375rem;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  --tracking-wide: 0.06em;
+  --tracking-wider: 0.12em;
+
+  // --- layout --------------------------------------------------------------
+  --header-height: 60px;
+  --sidebar-width: 256px;
+  --sidebar-width-collapsed: 68px;
+  --content-max-width: 1600px;
+
+  // --- motion --------------------------------------------------------------
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+
+  --z-sticky: 100;
+  --z-drawer: 400;
+  --z-modal: 500;
+  --z-toast: 700;
+}
+
+// ---------------------------------------------------------------------------
+// Dark theme. Only the semantic layer is redefined; the ramps stay put so a
+// deployment can re-point the brand once and have both themes follow.
+// ---------------------------------------------------------------------------
+@mixin dark-tokens {
+  color-scheme: dark;
+
+  --surface-canvas: #131211;
+  --surface-raised: #1c1b19;
+  --surface-sunken: #171614;
+  --surface-overlay: #232120;
+  --surface-inverted: var(--neutral-50);
+  --surface-hover: rgb(255 255 255 / 5%);
+  --surface-active: rgb(255 255 255 / 8%);
+  --surface-scrim: rgb(0 0 0 / 62%);
+
+  --border-subtle: #302d2a;
+  --border-strong: #423e3a;
+  --border-focus: var(--brand-400);
+
+  --text-primary: #ece9e3;
+  --text-secondary: #a8a39a;
+  --text-muted: #837e76;
+  --text-inverted: var(--neutral-900);
+  --text-on-accent: #1c1a17;
+
+  --accent: var(--brand-300);
+  --accent-hover: var(--brand-200);
+  --accent-active: var(--brand-100);
+  --accent-soft: color-mix(in srgb, var(--brand-300) 16%, transparent);
+  --accent-soft-text: var(--brand-200);
+  --accent-ring: color-mix(in srgb, var(--brand-300) 30%, transparent);
+
+  --success: #63b184;
+  --success-soft: rgb(99 177 132 / 15%);
+  --success-text: #8fcaa8;
+  --warning: #d9a94e;
+  --warning-soft: rgb(217 169 78 / 15%);
+  --warning-text: #e3bf7c;
+  --danger: #d97771;
+  --danger-soft: rgb(217 119 113 / 15%);
+  --danger-text: #e59c97;
+  --info: #6ea3cd;
+  --info-soft: rgb(110 163 205 / 15%);
+  --info-text: #97bfe0;
+  --neutral-soft: rgb(255 255 255 / 7%);
+  --neutral-soft-text: #b7b2a9;
+
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 45%), 0 1px 2px rgb(0 0 0 / 30%);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 45%), 0 1px 3px rgb(0 0 0 / 30%);
+  --shadow-lg: 0 12px 32px rgb(0 0 0 / 55%), 0 4px 8px rgb(0 0 0 / 35%);
+  --shadow-xl: 0 24px 56px rgb(0 0 0 / 65%);
+}
+
+:root[data-theme='dark'] {
+  @include dark-tokens;
+}
+
+// 'system' is the default and stamps no attribute, so honour the OS preference
+// unless the user has explicitly chosen light.
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    @include dark-tokens;
+  }
+}

@@ -1,0 +1,89 @@
+@use '../../../styles/mixins' as *;
+
+.branch { position: relative; }
+
+.branch__trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  max-width: 220px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+
+  &:hover:not(:disabled) { background: var(--surface-hover); }
+  &:disabled { cursor: default; opacity: 0.85; }
+
+  @include focus-visible;
+}
+
+.branch__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.branch__label {
+  font-size: 10px;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.branch__name {
+  max-width: 140px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  @include truncate;
+}
+
+.branch__menu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: var(--z-sticky);
+  min-width: 260px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--space-1);
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  animation: drop var(--duration-fast) var(--ease-out);
+  @include scrollbar;
+}
+
+.branch__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover { background: var(--surface-hover); }
+  &[aria-selected='true'] { color: var(--accent-soft-text); }
+}
+
+.branch__option-text { display: flex; flex-direction: column; min-width: 0; }
+.branch__option-name { font-size: var(--text-base); @include truncate; }
+.branch__option-meta { font-size: var(--text-xs); color: var(--text-muted); }
+
+@keyframes drop {
+  from { opacity: 0; transform: translateY(-4px); }
+}

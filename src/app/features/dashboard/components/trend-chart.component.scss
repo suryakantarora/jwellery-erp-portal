@@ -1,0 +1,52 @@
+.chart {
+  margin: 0;
+}
+
+.chart__svg {
+  display: block;
+  width: 100%;
+  height: 200px;
+  overflow: visible;
+}
+
+.chart__axis {
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+}
+
+.chart__hit {
+  fill: transparent;
+}
+
+.chart__bar {
+  fill: var(--accent);
+  opacity: 0.35;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.chart__bar--latest {
+  opacity: 1;
+}
+
+.chart__group:hover .chart__bar {
+  opacity: 0.85;
+}
+.chart__group:hover .chart__bar--latest {
+  opacity: 1;
+}
+
+.chart__tick {
+  fill: var(--text-muted);
+  font-size: 11px;
+  font-family: var(--font-sans);
+  text-anchor: middle;
+}
+
+.chart__value {
+  fill: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-anchor: middle;
+}

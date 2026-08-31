@@ -1,0 +1,553 @@
+@if (loading() && !supplier()) {
+  <app-loading-state label="Loading supplier…" />
+} @else if (error(); as failure) {
+  <app-error-state [error]="failure" (retry)="reload()" />
+} @else if (supplier(); as sup) {
+  <app-page-header [title]="sup.name" eyebrow="Supplier" [description]="sup.legalName ?? ''">
+    <a class="btn btn--ghost" routerLink="/procurement/suppliers">Back to suppliers</a>
+    @if (canManage()) {
+      <button type="button" class="btn btn--secondary" (click)="editSupplier()">Edit</button>
+      @if (sup.status === 'ACTIVE') {
+        <button type="button" class="btn btn--danger-ghost" (click)="changeStatus('BLOCKED')">
+          Block
+        </button>
+      } @else {
+        <button type="button" class="btn btn--secondary" (click)="changeStatus('ACTIVE')">
+          Reactivate
+        </button>
+      }
+    }
+  </app-page-header>
+
+  <section class="metric-row">
+    <article class="card kpi">
+      <p class="kpi__label">Orders raised</p>
+      <p class="kpi__value">{{ performance().orderCount }}</p>
+      <p class="kpi__note">{{ performance().outstanding }} still open</p>
+    </article>
+    <article class="card kpi">
+      <p class="kpi__label">Fulfilment</p>
+      <p class="kpi__value">
+        {{ performance().fulfilment === null ? '—' : performance().fulfilment + '%' }}
+      </p>
+      <p class="kpi__note">{{ performance().received }} fully received</p>
+    </article>
+    <article class="card kpi">
+      <p class="kpi__label">Committed value</p>
+      <p class="kpi__value">{{ performance().committed | number: '1.0-0' }}</p>
+      <p class="kpi__note">{{ sup.currency ?? '' }} across all orders</p>
+    </article>
+    <article class="card kpi">
+      <p class="kpi__label">Receipts</p>
+      <p class="kpi__value">{{ performance().receiptCount }}</p>
+      <p class="kpi__note">{{ performance().rejectedReceipts }} rejected at quality check</p>
+    </article>
+  </section>
+
+  <div class="report-grid">
+    <section class="card detail-section report-grid__wide">
+      <h2 class="detail-section__title">Trading terms</h2>
+      <dl class="detail-facts">
+        <div>
+          <dt>Code</dt>
+          <dd class="mono">{{ sup.code }}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd><app-status-badge [status]="sup.status" /></dd>
+        </div>
+        <div>
+          <dt>Type</dt>
+          <dd>{{ sup.supplierType ?? '—' }}</dd>
+        </div>
+        <div>
+          <dt>Currency</dt>
+          <dd class="mono">{{ sup.currency ?? '—' }}</dd>
+        </div>
+        <div>
+          <dt>Payment terms</dt>
+          <dd>
+            {{
+              sup.paymentTermsDays !== null && sup.paymentTermsDays !== undefined
+                ? 'Net ' + sup.paymentTermsDays + ' days'
+                : '—'
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>Credit limit</dt>
+          <dd class="numeric">{{ sup.creditLimit | number: '1.0-2' }}</dd>
+        </div>
+        <div>
+          <dt>Tax number</dt>
+          <dd class="mono">{{ sup.taxNumber ?? '—' }}</dd>
+        </div>
+        <div>
+          <dt>Phone</dt>
+          <dd>{{ sup.phone ?? '—' }}</dd>
+        </div>
+        <div>
+          <dt>Email</dt>
+          <dd>{{ sup.email ?? '—' }}</dd>
+        </div>
+        <div>
+          <dt>Address</dt>
+          <dd>
+            {{ sup.addressLine ?? '—' }}{{ sup.city ? ', ' + sup.city : ''
+            }}{{ sup.country ? ', ' + sup.country : '' }}
+          </dd>
+        </div>
+      </dl>
+      @if (sup.notes) {
+        <p class="muted detail-note">{{ sup.notes }}</p>
+      }
+    </section>
+
+    <section class="card detail-section">
+      <header class="section-head">
+        <h2 class="detail-section__title">Contacts</h2>
+        @if (canManage()) {
+          <button type="button" class="btn btn--ghost btn--sm" (click)="addContact()">
+            Add contact
+          </button>
+        }
+      </header>
+
+      @if (!sup.contacts || sup.contacts.length === 0) {
+        <p class="muted">No contacts recorded.</p>
+      } @else {
+        <ul class="record-list">
+          @for (contact of sup.contacts; track contact.id) {
+            <li class="record">
+              <div>
+                <p class="record__title">
+                  {{ contact.name }}
+                  @if (contact.primaryContact) {
+                    <app-status-badge tone="accent" label="Primary" [dot]="false" />
+                  }
+                </p>
+                <p class="record__detail">{{ contact.designation ?? '—' }}</p>
+              </div>
+              <div class="record__side">
+                <p class="record__detail">{{ contact.phone ?? '—' }}</p>
+                <p class="record__detail">{{ contact.email ?? '—' }}</p>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <section class="card detail-section">
+      <header class="section-head">
+        <h2 class="detail-section__title">Bank details</h2>
+        @if (canManage()) {
+          <button type="button" class="btn btn--ghost btn--sm" (click)="addBankAccount()">
+            Add account
+          </button>
+        }
+      </header>
+
+      @if (!sup.bankAccounts || sup.bankAccounts.length === 0) {
+        <p class="muted">No bank accounts recorded.</p>
+      } @else {
+        <ul class="record-list">
+          @for (account of sup.bankAccounts; track account.id) {
+            <li class="record">
+              <div>
+                <p class="record__title">
+                  {{ account.bankName }}
+                  @if (account.primaryAccount) {
+                    <app-status-badge tone="accent" label="Primary" [dot]="false" />
+                  }
+                </p>
+                <p class="record__detail">{{ account.accountName }}</p>
+              </div>
+              <div class="record__side">
+                <p class="record__detail mono">{{ account.accountNumber }}</p>
+                <p class="record__detail">
+                  {{ account.swiftCode ?? '' }} {{ account.currency ?? '' }}
+                </p>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <section class="card detail-section">
+      <h2 class="detail-section__title">Recent orders</h2>
+      @if (orders().length === 0) {
+        <p class="muted">No orders have been raised with this supplier.</p>
+      } @else {
+        <ul class="record-list">
+          @for (order of orders().slice(0, 8); track order.id) {
+            <li class="record">
+              <div>
+                <p class="record__title mono">{{ order.orderNumber }}</p>
+                <p class="record__detail">
+                  {{ order.orderDate }} · {{ order.lines.length }} line(s)
+                </p>
+              </div>
+              <div class="record__side">
+                <app-status-badge [status]="order.status" />
+                <p class="record__detail numeric">{{ order.estimatedTotal | number: '1.0-2' }}</p>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <section class="card detail-section">
+      <h2 class="detail-section__title">Recent receipts</h2>
+      @if (receipts().length === 0) {
+        <p class="muted">Nothing has been received from this supplier yet.</p>
+      } @else {
+        <ul class="record-list">
+          @for (receipt of receipts().slice(0, 8); track receipt.id) {
+            <li class="record">
+              <div>
+                <p class="record__title mono">{{ receipt.receiptNumber }}</p>
+                <p class="record__detail">
+                  {{ receipt.receiptDate }} · {{ receipt.lines.length }} piece(s)
+                  @if (receipt.qualityCheckedAt) {
+                    · checked {{ receipt.qualityCheckedAt | relativeTime }}
+                  }
+                </p>
+              </div>
+              <div class="record__side">
+                <app-status-badge [status]="receipt.status" />
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  </div>
+}
+
+@if (editor() === 'supplier') {
+  <app-drawer
+    eyebrow="Supplier"
+    title="Edit supplier"
+    [subtitle]="supplier()?.code ?? ''"
+    size="lg"
+    [closeOnBackdrop]="false"
+    (dismiss)="close()"
+  >
+    <form [formGroup]="supplierForm" (ngSubmit)="save()" id="supplier-edit-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+      <div class="form-grid">
+        <app-form-field
+          label="Code"
+          [required]="true"
+          [control]="supplierForm.controls.code"
+          [submitted]="submitted()"
+          for="ed-code"
+        >
+          <input id="ed-code" class="input mono" formControlName="code" />
+        </app-form-field>
+        <app-form-field
+          label="Type"
+          [control]="supplierForm.controls.supplierType"
+          [submitted]="submitted()"
+          for="ed-type"
+        >
+          <input id="ed-type" class="input" formControlName="supplierType" />
+        </app-form-field>
+        <app-form-field
+          class="form-grid__full"
+          label="Name"
+          [required]="true"
+          [control]="supplierForm.controls.name"
+          [submitted]="submitted()"
+          for="ed-name"
+        >
+          <input id="ed-name" class="input" formControlName="name" />
+        </app-form-field>
+        <app-form-field
+          class="form-grid__full"
+          label="Legal name"
+          [control]="supplierForm.controls.legalName"
+          [submitted]="submitted()"
+          for="ed-legal"
+        >
+          <input id="ed-legal" class="input" formControlName="legalName" />
+        </app-form-field>
+        <app-form-field
+          label="Tax number"
+          [control]="supplierForm.controls.taxNumber"
+          [submitted]="submitted()"
+          for="ed-tax"
+        >
+          <input id="ed-tax" class="input mono" formControlName="taxNumber" />
+        </app-form-field>
+        <app-form-field
+          label="Currency"
+          [control]="supplierForm.controls.currency"
+          [submitted]="submitted()"
+          for="ed-currency"
+        >
+          <input id="ed-currency" class="input mono" maxlength="3" formControlName="currency" />
+        </app-form-field>
+        <app-form-field
+          class="form-grid__full"
+          label="Address"
+          [control]="supplierForm.controls.addressLine"
+          [submitted]="submitted()"
+          for="ed-address"
+        >
+          <input id="ed-address" class="input" formControlName="addressLine" />
+        </app-form-field>
+        <app-form-field
+          label="City"
+          [control]="supplierForm.controls.city"
+          [submitted]="submitted()"
+          for="ed-city"
+        >
+          <input id="ed-city" class="input" formControlName="city" />
+        </app-form-field>
+        <app-form-field
+          label="Country"
+          [control]="supplierForm.controls.country"
+          [submitted]="submitted()"
+          for="ed-country"
+        >
+          <input id="ed-country" class="input" formControlName="country" />
+        </app-form-field>
+        <app-form-field
+          label="Phone"
+          [control]="supplierForm.controls.phone"
+          [submitted]="submitted()"
+          for="ed-phone"
+        >
+          <input id="ed-phone" class="input" formControlName="phone" />
+        </app-form-field>
+        <app-form-field
+          label="Email"
+          [control]="supplierForm.controls.email"
+          [submitted]="submitted()"
+          for="ed-email"
+        >
+          <input id="ed-email" class="input" type="email" formControlName="email" />
+        </app-form-field>
+        <app-form-field
+          label="Payment terms (days)"
+          [control]="supplierForm.controls.paymentTermsDays"
+          [submitted]="submitted()"
+          for="ed-terms"
+        >
+          <input
+            id="ed-terms"
+            class="input numeric"
+            type="number"
+            min="0"
+            formControlName="paymentTermsDays"
+          />
+        </app-form-field>
+        <app-form-field
+          label="Credit limit"
+          [control]="supplierForm.controls.creditLimit"
+          [submitted]="submitted()"
+          for="ed-credit"
+        >
+          <input
+            id="ed-credit"
+            class="input numeric"
+            type="number"
+            step="0.01"
+            min="0"
+            formControlName="creditLimit"
+          />
+        </app-form-field>
+        <app-form-field
+          class="form-grid__full"
+          label="Notes"
+          [control]="supplierForm.controls.notes"
+          [submitted]="submitted()"
+          for="ed-notes"
+        >
+          <textarea id="ed-notes" class="textarea" rows="2" formControlName="notes"></textarea>
+        </app-form-field>
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Cancel</button>
+      <button
+        type="submit"
+        form="supplier-edit-form"
+        class="btn btn--primary"
+        [disabled]="saving()"
+      >
+        @if (saving()) {
+          <app-spinner [size]="14" />
+        }
+        Save changes
+      </button>
+    </ng-container>
+  </app-drawer>
+}
+
+@if (editor() === 'contact') {
+  <app-drawer
+    eyebrow="Supplier"
+    title="Add contact"
+    subtitle="The person to call about orders and deliveries."
+    size="md"
+    [closeOnBackdrop]="false"
+    (dismiss)="close()"
+  >
+    <form [formGroup]="contactForm" (ngSubmit)="save()" id="contact-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+      <div class="form-grid">
+        <app-form-field
+          label="Name"
+          [required]="true"
+          [control]="contactForm.controls.name"
+          [submitted]="submitted()"
+          for="ct-name"
+        >
+          <input id="ct-name" class="input" formControlName="name" />
+        </app-form-field>
+        <app-form-field
+          label="Designation"
+          [control]="contactForm.controls.designation"
+          [submitted]="submitted()"
+          for="ct-designation"
+        >
+          <input id="ct-designation" class="input" formControlName="designation" />
+        </app-form-field>
+        <app-form-field
+          label="Phone"
+          [control]="contactForm.controls.phone"
+          [submitted]="submitted()"
+          for="ct-phone"
+        >
+          <input id="ct-phone" class="input" formControlName="phone" />
+        </app-form-field>
+        <app-form-field
+          label="Email"
+          [control]="contactForm.controls.email"
+          [submitted]="submitted()"
+          for="ct-email"
+        >
+          <input id="ct-email" class="input" type="email" formControlName="email" />
+        </app-form-field>
+        <div class="form-grid__full">
+          <label class="checkbox">
+            <input type="checkbox" formControlName="primaryContact" />
+            <span>Primary contact</span>
+          </label>
+        </div>
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Cancel</button>
+      <button type="submit" form="contact-form" class="btn btn--primary" [disabled]="saving()">
+        @if (saving()) {
+          <app-spinner [size]="14" />
+        }
+        Add contact
+      </button>
+    </ng-container>
+  </app-drawer>
+}
+
+@if (editor() === 'bank') {
+  <app-drawer
+    eyebrow="Supplier"
+    title="Add bank account"
+    subtitle="Where payments to this supplier are sent."
+    size="md"
+    [closeOnBackdrop]="false"
+    (dismiss)="close()"
+  >
+    <form [formGroup]="bankForm" (ngSubmit)="save()" id="bank-form">
+      @if (formError(); as message) {
+        <p class="form-error">{{ message }}</p>
+      }
+      <div class="form-grid">
+        <app-form-field
+          label="Bank"
+          [required]="true"
+          [control]="bankForm.controls.bankName"
+          [submitted]="submitted()"
+          for="bk-bank"
+        >
+          <input id="bk-bank" class="input" formControlName="bankName" />
+        </app-form-field>
+        <app-form-field
+          label="Branch"
+          [control]="bankForm.controls.branchName"
+          [submitted]="submitted()"
+          for="bk-branch"
+        >
+          <input id="bk-branch" class="input" formControlName="branchName" />
+        </app-form-field>
+        <app-form-field
+          class="form-grid__full"
+          label="Account name"
+          [required]="true"
+          [control]="bankForm.controls.accountName"
+          [submitted]="submitted()"
+          for="bk-account-name"
+        >
+          <input id="bk-account-name" class="input" formControlName="accountName" />
+        </app-form-field>
+        <app-form-field
+          label="Account number"
+          [required]="true"
+          [control]="bankForm.controls.accountNumber"
+          [submitted]="submitted()"
+          for="bk-account-number"
+        >
+          <input
+            id="bk-account-number"
+            class="input mono"
+            formControlName="accountNumber"
+            autocomplete="off"
+          />
+        </app-form-field>
+        <app-form-field
+          label="SWIFT / IFSC"
+          [control]="bankForm.controls.swiftCode"
+          [submitted]="submitted()"
+          for="bk-swift"
+        >
+          <input id="bk-swift" class="input mono" formControlName="swiftCode" />
+        </app-form-field>
+        <app-form-field
+          label="Currency"
+          [control]="bankForm.controls.currency"
+          [submitted]="submitted()"
+          for="bk-currency"
+        >
+          <input id="bk-currency" class="input mono" maxlength="3" formControlName="currency" />
+        </app-form-field>
+        <div class="form-grid__full">
+          <label class="checkbox">
+            <input type="checkbox" formControlName="primaryAccount" />
+            <span>Primary account</span>
+          </label>
+        </div>
+      </div>
+    </form>
+
+    <ng-container drawerFooter>
+      <button type="button" class="btn btn--ghost" (click)="close()">Cancel</button>
+      <button type="submit" form="bank-form" class="btn btn--primary" [disabled]="saving()">
+        @if (saving()) {
+          <app-spinner [size]="14" />
+        }
+        Add account
+      </button>
+    </ng-container>
+  </app-drawer>
+}
