@@ -1,0 +1,115 @@
+Admin ERP Portal — Complete Development Roadmap
+Technology
+Angular
+TypeScript
+SCSS
+Angular Material / CDK where useful
+RxJS
+Reactive Forms
+REST APIs
+JWT authentication
+Responsive design
+Charts
+Application structure
+Admin ERP
+│
+├── Authentication
+├── Dashboard
+├── Organization
+├── User & Access Management
+├── Product Management
+├── Metal Management
+├── Gemstone Management
+├── Jewellery Inventory
+├── Procurement
+├── Pricing
+├── Customer
+├── CRM
+├── Loyalty
+├── Repair
+├── Exchange & Buyback
+├── Warehouse & Vault
+├── Finance
+├── Notifications
+├── Reports
+├── Compliance
+└── Settings
+
+=========================
+Final Admin ERP Roadmap
+=========================
+complete sequence:
+
+PHASE 1
+ERP Foundation
+       ↓
+PHASE 2
+Organization + Users + Roles
+       ↓
+PHASE 3
+Products + Metals + Gemstones
+       ↓
+PHASE 4
+Jewellery Items + Inventory
+       ↓
+PHASE 5
+Suppliers + Procurement
+       ↓
+PHASE 6
+Pricing Engine
+       ↓
+PHASE 7
+Customers + CRM
+       ↓
+PHASE 8
+Loyalty + Promotions
+       ↓
+PHASE 9
+Sales Administration
+       ↓
+PHASE 10
+Exchange + Buyback
+       ↓
+PHASE 11
+Repairs
+       ↓
+PHASE 12
+Warehouse + Vault
+       ↓
+PHASE 13
+Finance
+       ↓
+PHASE 14
+Notifications + Approvals
+       ↓
+PHASE 15
+Reports + BI Dashboard
+       ↓
+PHASE 16
+Compliance + Audit
+       ↓
+PHASE 17
+Settings + Production Polish
+One important rule
+
+Don't move to the next phase until the current phase is actually integrated and working with your backend.
+
+For example, in Phase 4, don't just create beautiful inventory screens with dummy data. Connect them to the real APIs (pvj-backend) and verify the complete flow:
+
+Admin
+  ↓
+Create Product
+  ↓
+Create Jewellery Item
+  ↓
+Assign Metal + Stone
+  ↓
+Assign RFID / QR
+  ↓
+Receive into Warehouse
+  ↓
+Transfer to Branch
+  ↓
+View Digital Passport
+  ↓
+View Movement History
